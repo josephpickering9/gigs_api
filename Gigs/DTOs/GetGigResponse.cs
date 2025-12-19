@@ -3,7 +3,7 @@ using Gigs.Types;
 
 namespace Gigs.DTOs;
 
-public class GigDto
+public class GetGigResponse
 {
     public GigId Id { get; set; }
     public VenueId VenueId { get; set; }

@@ -10,28 +10,28 @@ namespace Gigs.Controllers;
 public class GigController(IGigService gigService) : ControllerBase
 {
     [HttpGet]
-    public async Task<ActionResult<List<GigDto>>> GetAll()
+    public async Task<ActionResult<List<GetGigResponse>>> GetAll()
     {
         var gigs = await gigService.GetAllAsync();
         return Ok(gigs);
     }
 
     [HttpGet("{id}")]
-    public async Task<ActionResult<GigDto>> GetById(GigId id)
+    public async Task<ActionResult<GetGigResponse>> GetById(GigId id)
     {
         var gig = await gigService.GetByIdAsync(id);
         return Ok(gig);
     }
 
     [HttpPost]
-    public async Task<ActionResult<GigDto>> Create(UpsertGigRequest request)
+    public async Task<ActionResult<GetGigResponse>> Create(UpsertGigRequest request)
     {
         var gig = await gigService.CreateAsync(request);
         return CreatedAtAction(nameof(GetById), new { id = gig.Id }, gig);
     }
 
     [HttpPut("{id}")]
-    public async Task<ActionResult<GigDto>> Update(GigId id, UpsertGigRequest request)
+    public async Task<ActionResult<GetGigResponse>> Update(GigId id, UpsertGigRequest request)
     {
         var gig = await gigService.UpdateAsync(id, request);
         return Ok(gig);

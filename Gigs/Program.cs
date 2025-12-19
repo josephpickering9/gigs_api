@@ -28,6 +28,7 @@ builder.Services.AddScoped<Gigs.Repositories.IGigRepository, Gigs.Repositories.G
 
 // Services
 builder.Services.AddScoped<IGigService, GigService>();
+builder.Services.AddScoped<ICsvImportService, CsvImportService>();
 
 
 builder.Services.AddEndpointsApiExplorer();
