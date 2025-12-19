@@ -40,17 +40,12 @@ public class CsvImportService(Database db) : ICsvImportService
 
     private async Task ProcessRecordAsync(CsvGigRecord record)
     {
-        // 1. Venue
         if (string.IsNullOrWhiteSpace(record.Venue) || string.IsNullOrWhiteSpace(record.City))
         {
-            // Should verify if City is always present. 
-            // If City missing, we can't create Venue properly as it is required.
-            // For now, assuming validated record has Venue, but let's be safe.
              return; 
         }
         var venue = await GetOrCreateVenueAsync(record.Venue, record.City);
 
-        // 2. Gig - Match by Date + Venue
         var gig = await db.Gig
             .Include(g => g.Acts)
             .Include(g => g.Attendees)
@@ -62,19 +57,14 @@ public class CsvImportService(Database db) : ICsvImportService
             {
                 Date = record.Date!.Value,
                 VenueId = venue.Id,
-                Slug = Guid.NewGuid().ToString() // Temporary until refined logic if needed
+                Slug = Guid.NewGuid().ToString()
             };
             db.Gig.Add(gig);
         }
 
-        // Update details
         gig.TicketCost = ParseCurrency(record.TicketCost);
         gig.TicketType = ParseTicketType(record.TicketType);
-        // Note: Genre is not on Gig model? "Genre" in CSV. Maybe ignored or added to Headliner? 
-        // User didn't specify where Genre goes. The models don't have Genre on Gig/Artist. I'll ignore for now.
 
-        // 3. Acts
-        // Helper to split
         var acts = new List<(string Name, bool IsHeadliner, string? SetlistUrl)>();
         acts.Add((record.Headliner!, true, record.SetlistUrl));
 
@@ -87,9 +77,6 @@ public class CsvImportService(Database db) : ICsvImportService
             }
         }
 
-        // Clear existing acts to strict sync? Or append?
-        // Since it's an import, replacing seems safer to avoid duplicates if run multiple times.
-        // But EF ID tracking is tricky.
         db.GigArtist.RemoveRange(gig.Acts);
         gig.Acts.Clear();
 
@@ -99,19 +86,16 @@ public class CsvImportService(Database db) : ICsvImportService
             var artist = await GetOrCreateArtistAsync(actInfo.Name);
             var gigArtist = new GigArtist
             {
-                Gig = gig, // EF will handle linkage needed for new entites? No, link object.
+                Gig = gig,
                 ArtistId = artist.Id,
                 IsHeadliner = actInfo.IsHeadliner,
                 Order = order++,
                 SetlistUrl = actInfo.IsHeadliner ? actInfo.SetlistUrl : null
             };
-            // Note: If artist is new (Added to tracker but not saved), ID is temp.
-            // Using navigation property 'Artist' is better if we have the entity track.
             gigArtist.Artist = artist; 
             gig.Acts.Add(gigArtist);
         }
 
-        // 4. Attendees
         db.GigAttendee.RemoveRange(gig.Attendees);
         gig.Attendees.Clear();
 
@@ -137,7 +121,6 @@ public class CsvImportService(Database db) : ICsvImportService
         var venue = await db.Venue.FirstOrDefaultAsync(v => v.Name == name && v.City == city);
         if (venue == null)
         {
-            // Check local tracker in case we added it in this batch
             venue = db.Venue.Local.FirstOrDefault(v => v.Name == name && v.City == city);
         }
 
@@ -147,7 +130,7 @@ public class CsvImportService(Database db) : ICsvImportService
             {
                 Name = name,
                 City = city,
-                Slug = Guid.NewGuid().ToString() // Placeholder
+                Slug = Guid.NewGuid().ToString()
             };
             db.Venue.Add(venue);
         }
@@ -196,9 +179,6 @@ public class CsvImportService(Database db) : ICsvImportService
 
     private List<string> SplitWithAmpersandKeep(string input)
     {
-        // Split by ',' and '/'
-        // Trim whitespace
-        // "Miles Kane & The Vaccines" -> "Miles Kane & The Vaccines"
         var parts = input.Split(new[] { ',', '/' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
         return parts.ToList();
     }
@@ -206,7 +186,6 @@ public class CsvImportService(Database db) : ICsvImportService
     private decimal? ParseCurrency(string? cost)
     {
         if (string.IsNullOrWhiteSpace(cost)) return null;
-        // Remove currency symbols and parse
         var clean = cost.Replace("£", "").Replace("$", "").Trim();
         if (decimal.TryParse(clean, NumberStyles.Any, CultureInfo.InvariantCulture, out var val))
         {
@@ -222,7 +201,6 @@ public class CsvImportService(Database db) : ICsvImportService
         {
             return result;
         }
-        // Map from description if needed, logic is consistent with Enum
         return TicketType.Other;
     }
 

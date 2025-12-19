@@ -11,6 +11,8 @@ namespace Gigs.Services.AI;
 public interface IAiEnrichmentService
 {
     Task<AiEnrichmentResult> EnrichGig(Gig gig);
+    Task<string?> EnrichArtistImage(string artistName);
+    Task<string?> EnrichVenueImage(string venueName, string city);
 }
 
 public class AiEnrichmentResult
@@ -37,8 +39,32 @@ public class AiEnrichmentService : IAiEnrichmentService
         _publisher = "google";
         _model = configuration["VertexAi:Model"] ?? "gemini-1.5-pro-001";
         
-        // Assuming ADC is set up
-        _predictionServiceClient = PredictionServiceClient.Create();
+        var credentialsJson = configuration["VertexAi:CredentialsJson"];
+        var credentialsFile = configuration["VertexAi:CredentialsFile"];
+
+        var builder = new PredictionServiceClientBuilder
+        {
+            Endpoint = $"{_location}-aiplatform.googleapis.com"
+        };
+
+        if (!string.IsNullOrWhiteSpace(credentialsJson))
+        {
+            _logger.LogInformation("Using Vertex AI Credentials from JSON configuration.");
+            var credential = Google.Apis.Auth.OAuth2.GoogleCredential.FromJson(credentialsJson);
+            builder.Credential = credential.CreateScoped(PredictionServiceClient.DefaultScopes);
+        }
+        else if (!string.IsNullOrWhiteSpace(credentialsFile))
+        {
+            _logger.LogInformation("Using Vertex AI Credentials from File: {CredentialsFile}", credentialsFile);
+             var credential = Google.Apis.Auth.OAuth2.GoogleCredential.FromFile(credentialsFile);
+             builder.Credential = credential.CreateScoped(PredictionServiceClient.DefaultScopes);
+        }
+        else
+        {
+            _logger.LogInformation("Using Application Default Credentials (ADC) for Vertex AI.");
+        }
+        
+        _predictionServiceClient = builder.Build();
     }
 
     public async Task<AiEnrichmentResult> EnrichGig(Gig gig)
@@ -101,16 +127,18 @@ Output strictly in JSON format:
             GenerationConfig = new GenerationConfig
             {
                 Temperature = 0.2f,
-                MaxOutputTokens = 1024,
+                MaxOutputTokens = 4096, // Increased to prevent truncation
                 ResponseMimeType = "application/json"
             }
         };
+
+        string? responseText = null;
 
         try
         {
             var response = await _predictionServiceClient.GenerateContentAsync(generateContentRequest);
             
-            var responseText = response.Candidates.FirstOrDefault()?.Content?.Parts.FirstOrDefault()?.Text;
+            responseText = response.Candidates.FirstOrDefault()?.Content?.Parts.FirstOrDefault()?.Text;
             
             if (string.IsNullOrEmpty(responseText))
             {
@@ -118,21 +146,149 @@ Output strictly in JSON format:
                 return new AiEnrichmentResult();
             }
 
-            // Clean up markdown code blocks if present
-            responseText = responseText.Replace("```json", "").Replace("```", "").Trim();
+            // Clean up: find first '{' and last '}'
+            var firstBrace = responseText.IndexOf('{');
+            var lastBrace = responseText.LastIndexOf('}');
+
+            if (firstBrace >= 0 && lastBrace > firstBrace)
+            {
+                responseText = responseText.Substring(firstBrace, lastBrace - firstBrace + 1);
+            }
+            else
+            {
+                // Fallback cleanup if braces not found correctly (unlikely for valid JSON)
+                responseText = responseText.Replace("```json", "").Replace("```", "").Trim();
+            }
 
             var options = new JsonSerializerOptions
             {
-                PropertyNameCaseInsensitive = true
+                PropertyNameCaseInsensitive = true,
+                ReadCommentHandling = JsonCommentHandling.Skip,
+                AllowTrailingCommas = true
             };
             
             var result = JsonSerializer.Deserialize<AiEnrichmentResult>(responseText, options);
             return result ?? new AiEnrichmentResult();
         }
+        catch (Grpc.Core.RpcException ex) when (ex.Status.StatusCode == Grpc.Core.StatusCode.Unauthenticated || ex.Message.Contains("invalid_grant"))
+        {
+            _logger.LogError(ex, "Vertex AI Authentication failed. Please run 'gcloud auth application-default login' to refresh your credentials.");
+            throw new Exception("Vertex AI Authentication failed. Please check server logs for details.", ex);
+        }
+        catch (JsonException ex)
+        {
+             _logger.LogError(ex, "Failed to parse AI response. Raw Text: {RawResponse}", responseText);
+             throw new Exception($"Failed to parse AI response. Raw Text: {responseText}", ex);
+        }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error enriching gig {GigId}", gig.Id);
             throw; // Or return empty/partial result depending on requirement
+        }
+    }
+
+    public async Task<string?> EnrichArtistImage(string artistName)
+    {
+        var endpoint = EndpointName.FormatProjectLocationPublisherModel(_projectId, _location, _publisher, _model);
+
+        var prompt = $@"
+You are a music historian helper.
+I have an artist named: {artistName}
+
+Please provide a direct URL to a high-quality, representative image of this artist.
+Prefer official press photos or album covers if possible.
+Ensure the URL is likely to be valid and publicly accessible.
+If you cannot find a specific URL, provide a URL to their Wikipedia page 'image' or a similar reliable source.
+Actually, just try your best to give me a direct image link (ending in .jpg, .png etc).
+
+Output ONLY the URL. Do not output JSON. Just the raw URL string.
+If you absolutely cannot find one, return 'null'.
+";
+
+        var content = new Content
+        {
+            Role = "USER",
+            Parts = { new Part { Text = prompt } }
+        };
+
+        var generateContentRequest = new GenerateContentRequest
+        {
+            Model = endpoint,
+            Contents = { content },
+            GenerationConfig = new GenerationConfig
+            {
+                Temperature = 0.2f,
+                MaxOutputTokens = 256,
+                ResponseMimeType = "text/plain"
+            }
+        };
+
+        try
+        {
+            var response = await _predictionServiceClient.GenerateContentAsync(generateContentRequest);
+            var url = response.Candidates.FirstOrDefault()?.Content?.Parts.FirstOrDefault()?.Text?.Trim();
+
+            if (string.IsNullOrWhiteSpace(url) || url.Equals("null", StringComparison.OrdinalIgnoreCase))
+                return null;
+
+            return url;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error fetching artist image for {ArtistName}", artistName);
+            return null;
+        }
+    }
+
+    public async Task<string?> EnrichVenueImage(string venueName, string city)
+    {
+        var endpoint = EndpointName.FormatProjectLocationPublisherModel(_projectId, _location, _publisher, _model);
+
+        var prompt = $@"
+You are a music venue expert.
+I have a music venue named: {venueName} in {city}
+
+Please provide a direct URL to a high-quality, representative image of this venue.
+Prefer exterior or interior photos showing the venue clearly.
+Ensure the URL is likely to be valid and publicly accessible.
+Try your best to give me a direct image link (ending in .jpg, .png etc).
+
+Output ONLY the URL. Do not output JSON. Just the raw URL string.
+If you absolutely cannot find one, return 'null'.
+";
+
+        var content = new Content
+        {
+            Role = "USER",
+            Parts = { new Part { Text = prompt } }
+        };
+
+        var generateContentRequest = new GenerateContentRequest
+        {
+            Model = endpoint,
+            Contents = { content },
+            GenerationConfig = new GenerationConfig
+            {
+                Temperature = 0.2f,
+                MaxOutputTokens = 256,
+                ResponseMimeType = "text/plain"
+            }
+        };
+
+        try
+        {
+            var response = await _predictionServiceClient.GenerateContentAsync(generateContentRequest);
+            var url = response.Candidates.FirstOrDefault()?.Content?.Parts.FirstOrDefault()?.Text?.Trim();
+
+            if (string.IsNullOrWhiteSpace(url) || url.Equals("null", StringComparison.OrdinalIgnoreCase))
+                return null;
+
+            return url;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error fetching venue image for {VenueName} in {City}", venueName, city);
+            return null;
         }
     }
 }

@@ -10,9 +10,9 @@ namespace Gigs.Controllers;
 public class GigController(IGigService gigService) : ControllerBase
 {
     [HttpGet]
-    public async Task<ActionResult<List<GetGigResponse>>> GetAll()
+    public async Task<ActionResult<List<GetGigResponse>>> GetAll([FromQuery] GetGigsFilter filter)
     {
-        var gigs = await gigService.GetAllAsync();
+        var gigs = await gigService.GetAllAsync(filter);
         return Ok(gigs);
     }
 

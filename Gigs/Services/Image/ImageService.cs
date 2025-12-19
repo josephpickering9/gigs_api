@@ -60,6 +60,20 @@ public class ImageService : IImageService
             return new Failure<byte[]>(e.Message);
         }
     }
+
+    public async Task<string> SaveImageAsync(string fileName, byte[] data)
+    {
+        var uploadDir = Path.Combine(_env.WebRootPath ?? _env.ContentRootPath, "uploads");
+        if (!Directory.Exists(uploadDir))
+        {
+            Directory.CreateDirectory(uploadDir);
+        }
+
+        var filePath = Path.Combine(uploadDir, fileName);
+        await File.WriteAllBytesAsync(filePath, data);
+        
+        return fileName;
+    }
 }
 
 public class ImageData

@@ -10,9 +10,9 @@ namespace Gigs.Services;
 
 public class GigService(IGigRepository repository, Database db, IAiEnrichmentService aiService) : IGigService
 {
-    public async Task<List<GetGigResponse>> GetAllAsync()
+    public async Task<List<GetGigResponse>> GetAllAsync(GetGigsFilter filter)
     {
-        var gigs = await repository.GetAllAsync();
+        var gigs = await repository.GetAllAsync(filter);
         return gigs.Select(MapToDto).ToList();
     }
 
@@ -98,6 +98,7 @@ public class GigService(IGigRepository repository, Database db, IAiEnrichmentSer
 
         var enrichment = await aiService.EnrichGig(gig);
 
+
         if (enrichment.SupportActs.Any())
         {
             foreach (var actName in enrichment.SupportActs)
@@ -105,7 +106,8 @@ public class GigService(IGigRepository repository, Database db, IAiEnrichmentSer
                 if (gig.Acts.Any(a => a.Artist.Name.Equals(actName, StringComparison.OrdinalIgnoreCase)))
                     continue;
 
-                var artist = await db.Artist.FirstOrDefaultAsync(a => a.Name.ToLower() == actName.ToLower());
+                var artist = db.Artist.Local.FirstOrDefault(a => a.Name.Equals(actName, StringComparison.CurrentCultureIgnoreCase))
+                             ?? await db.Artist.FirstOrDefaultAsync(a => a.Name.ToLower() == actName.ToLower());
 
                 if (artist == null)
                 {
@@ -115,12 +117,11 @@ public class GigService(IGigRepository repository, Database db, IAiEnrichmentSer
                         Slug = Guid.NewGuid().ToString()
                     };
                     db.Artist.Add(artist);
-                    await db.SaveChangesAsync();
                 }
 
                 gig.Acts.Add(new GigArtist
                 {
-                    ArtistId = artist.Id,
+                    ArtistId = artist.Id, 
                     Artist = artist,
                     IsHeadliner = false,
                     GigId = gig.Id
@@ -137,7 +138,9 @@ public class GigService(IGigRepository repository, Database db, IAiEnrichmentSer
 
                 foreach (var songTitle in enrichment.Setlist)
                 {
-                    var song = await db.Song.FirstOrDefaultAsync(s => s.ArtistId == headliner.ArtistId && s.Title.ToLower() == songTitle.ToLower());
+                    var song = db.Song.Local.FirstOrDefault(s => s.ArtistId == headliner.ArtistId && s.Title.Equals(songTitle, StringComparison.CurrentCultureIgnoreCase))
+                               ?? await db.Song.FirstOrDefaultAsync(s => s.ArtistId == headliner.ArtistId && s.Title.ToLower() == songTitle.ToLower());
+
                     if (song == null)
                     {
                         song = new Song
@@ -147,15 +150,15 @@ public class GigService(IGigRepository repository, Database db, IAiEnrichmentSer
                             Slug = Guid.NewGuid().ToString()
                         };
                         db.Song.Add(song);
-                        await db.SaveChangesAsync();
                     }
 
-                    if (!headliner.Songs.Any(s => s.SongId == song.Id))
+                    if (!headliner.Songs.Any(s => s.Song != null ? s.Song.Title.Equals(songTitle, StringComparison.CurrentCultureIgnoreCase) : s.SongId == song.Id))
                     {
                         headliner.Songs.Add(new GigArtistSong
                         {
                             GigArtistId = headliner.Id,
                             SongId = song.Id,
+                            Song = song,
                             Order = order
                         });
                     }
@@ -186,7 +189,13 @@ public class GigService(IGigRepository repository, Database db, IAiEnrichmentSer
             TicketType = gig.TicketType,
             ImageUrl = gig.ImageUrl,
             Slug = gig.Slug,
-            Acts = gig.Acts.Select(a => a.Artist?.Name ?? "Unknown Artist").ToList()
+            Acts = gig.Acts.Select(a => new GetGigArtistResponse
+            {
+                ArtistId = a.ArtistId,
+                Name = a.Artist?.Name ?? "Unknown Artist",
+                IsHeadliner = a.IsHeadliner,
+                ImageUrl = a.Artist?.ImageUrl
+            }).OrderByDescending(a => a.IsHeadliner).ThenBy(a => a.Name).ToList()
         };
     }
 }
