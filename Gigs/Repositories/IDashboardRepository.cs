@@ -1,6 +1,8 @@
+using Gigs.DTOs;
+
 namespace Gigs.Repositories;
 
 public interface IDashboardRepository
 {
-    Task<int> GetTotalGigsCountAsync();
+    Task<DashboardStatsResponse> GetDashboardStatsAsync();
 }

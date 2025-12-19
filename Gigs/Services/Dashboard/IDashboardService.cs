@@ -1,6 +1,8 @@
+using Gigs.DTOs;
+
 namespace Gigs.Services;
 
 public interface IDashboardService
 {
-    Task<int> GetTotalGigsCountAsync();
+    Task<DashboardStatsResponse> GetDashboardStatsAsync();
 }

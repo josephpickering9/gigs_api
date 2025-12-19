@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using Gigs.DTOs;
 using Gigs.Services;
 
 namespace Gigs.Controllers;
@@ -8,9 +9,9 @@ namespace Gigs.Controllers;
 public class DashboardController(IDashboardService dashboardService) : ControllerBase
 {
     [HttpGet("stats/total-gigs")]
-    public async Task<ActionResult<int>> GetTotalGigs()
+    public async Task<ActionResult<DashboardStatsResponse>> GetTotalGigs()
     {
-        var count = await dashboardService.GetTotalGigsCountAsync();
-        return Ok(count);
+        var stats = await dashboardService.GetDashboardStatsAsync();
+        return Ok(stats);
     }
 }
