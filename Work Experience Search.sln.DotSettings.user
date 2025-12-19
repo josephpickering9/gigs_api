@@ -1,0 +1,6 @@
+﻿<wpf:ResourceDictionary xml:space="preserve" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:s="clr-namespace:System;assembly=mscorlib" xmlns:ss="urn:shemas-jetbrains-com:settings-storage-xaml" xmlns:wpf="http://schemas.microsoft.com/winfx/2006/xaml/presentation">
+	<s:String x:Key="/Default/Environment/InlayHints/CSharpTypeConversionHintsOptions/ExclusionList/=56485a19_002D7c2a_002D42bc_002D84f1_002Dbb314157972d/@EntryIndexedValue">Microsoft.AspNetCore.Mvc.ActionResult`1()</s:String>
+	<s:String x:Key="/Default/Environment/UnitTesting/UnitTestSessionStore/Sessions/=2986882c_002D6dc8_002D4249_002D8197_002D8a20bc2f09ea/@EntryIndexedValue">&lt;SessionState ContinuousTestingMode="0" IsActive="True" Name="ProjectServiceTests" xmlns="urn:schemas-jetbrains-com:jetbrains-ut-session"&gt;
+  &lt;ProjectFolder&gt;C19E35E5-33A2-4AAF-B1CB-B3C12E1AE633/d:Tests&lt;/ProjectFolder&gt;
+&lt;/SessionState&gt;</s:String>
+	</wpf:ResourceDictionary>

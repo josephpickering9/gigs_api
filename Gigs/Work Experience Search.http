@@ -1,0 +1,6 @@
+@Work_Experience_Search_HostAddress = http://localhost:5105
+
+GET {{Work_Experience_Search_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

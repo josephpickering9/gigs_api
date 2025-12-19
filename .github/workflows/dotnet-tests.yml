@@ -1,0 +1,71 @@
+name: .NET Tests
+on: [push]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup cache for NuGet
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget-
+            
+      - name: Set up Docker Compose
+        run: sudo curl -L "https://github.com/docker/compose/releases/download/1.29.2/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose && sudo chmod +x /usr/local/bin/docker-compose
+
+      - name: Start Docker Compose
+        run: docker-compose -f WorkExperienceSearch/docker-compose.yml up -d
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.101'
+
+      - name: Restore dependencies
+        run: dotnet restore
+        env:
+          VertexAi__ProjectId: ${{ secrets.VERTEX_AI_PROJECT_ID }}
+          VertexAi__Location: ${{ secrets.VERTEX_AI_LOCATION }}
+          VertexAi__Collection: ${{ secrets.VERTEX_AI_COLLECTION }}
+          VertexAi__Branch: ${{ secrets.VERTEX_AI_BRANCH }}
+          VertexAi__Environment: ${{ secrets.VERTEX_AI_ENVIRONMENT }}
+          VertexAi__Model: ${{ secrets.VERTEX_AI_MODEL }}
+          VertexAi__ModelLocation: ${{ secrets.VERTEX_AI_MODEL_LOCATION }}
+          VertexAi__QueryDataStoreSuffix: ${{ secrets.VERTEX_AI_QUERY_DATASTORE_SUFFIX }}
+          VertexAi__CredentialsJson: ${{ secrets.VERTEX_AI_CREDENTIALS_JSON }}
+
+      - name: Build
+        run: dotnet build --no-restore
+        env:
+          VertexAi__ProjectId: ${{ secrets.VERTEX_AI_PROJECT_ID }}
+          VertexAi__Location: ${{ secrets.VERTEX_AI_LOCATION }}
+          VertexAi__Collection: ${{ secrets.VERTEX_AI_COLLECTION }}
+          VertexAi__Branch: ${{ secrets.VERTEX_AI_BRANCH }}
+          VertexAi__Environment: ${{ secrets.VERTEX_AI_ENVIRONMENT }}
+          VertexAi__Model: ${{ secrets.VERTEX_AI_MODEL }}
+          VertexAi__ModelLocation: ${{ secrets.VERTEX_AI_MODEL_LOCATION }}
+          VertexAi__QueryDataStoreSuffix: ${{ secrets.VERTEX_AI_QUERY_DATASTORE_SUFFIX }}
+          VertexAi__CredentialsJson: ${{ secrets.VERTEX_AI_CREDENTIALS_JSON }}
+
+      - name: Run Unit Tests
+        run: dotnet test --no-restore --verbosity normal
+        env:
+          VertexAi__ProjectId: ${{ secrets.VERTEX_AI_PROJECT_ID }}
+          VertexAi__Location: ${{ secrets.VERTEX_AI_LOCATION }}
+          VertexAi__Collection: ${{ secrets.VERTEX_AI_COLLECTION }}
+          VertexAi__Branch: ${{ secrets.VERTEX_AI_BRANCH }}
+          VertexAi__Environment: ${{ secrets.VERTEX_AI_ENVIRONMENT }}
+          VertexAi__Model: ${{ secrets.VERTEX_AI_MODEL }}
+          VertexAi__ModelLocation: ${{ secrets.VERTEX_AI_MODEL_LOCATION }}
+          VertexAi__QueryDataStoreSuffix: ${{ secrets.VERTEX_AI_QUERY_DATASTORE_SUFFIX }}
+          VertexAi__CredentialsJson: ${{ secrets.VERTEX_AI_CREDENTIALS_JSON }}
+        
+      - name: Shutdown Docker Compose
+        run: docker-compose -f WorkExperienceSearch/docker-compose.yml down
+        if: always()

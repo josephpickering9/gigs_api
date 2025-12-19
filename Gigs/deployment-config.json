@@ -1,0 +1,11 @@
+[
+  {
+    "name": "DigitalOcean",
+    "ip": "134.209.176.250",
+    "username": "root",
+    "password": "",
+    "beforeHooks": "",
+    "afterHooks": "",
+    "path": "/var/www/experience/api"
+  }
+]
