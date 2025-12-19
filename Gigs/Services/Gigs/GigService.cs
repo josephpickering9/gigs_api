@@ -2,19 +2,14 @@ using Gigs.DTOs;
 using Gigs.Exceptions;
 using Gigs.Models;
 using Gigs.Repositories;
+using Gigs.Services.AI;
 using Gigs.Types;
+using Microsoft.EntityFrameworkCore;
 
 namespace Gigs.Services;
 
-public class GigService(IGigRepository repository) : IGigService
+public class GigService(IGigRepository repository, Database db, IAiEnrichmentService aiService) : IGigService
 {
-    // Note: We inject Database directly here for transaction/lookup of related entities if needed, 
-    // or we could use other repositories (ArtistRepository, etc.) if they existed.
-    // For now, I'll assume we might need to lookup Artists to link them.
-    // Ideally, we should have IArtistRepository etc, but to keep it scoped to the request, 
-    // I'll stick to what's necessary.
-    // Actually, looking at the requirements, to "add/update... relating elements", we need to handle acts.
-
     public async Task<List<GetGigResponse>> GetAllAsync()
     {
         var gigs = await repository.GetAllAsync();
@@ -43,7 +38,6 @@ public class GigService(IGigRepository repository) : IGigService
             Slug = Guid.NewGuid().ToString() // Or generate a slug from venue/date
         };
 
-        // Handle Acts
         if (request.ArtistIds.Any())
         {
             foreach (var artistId in request.ArtistIds)
@@ -51,14 +45,12 @@ public class GigService(IGigRepository repository) : IGigService
                 gig.Acts.Add(new GigArtist
                 {
                     ArtistId = artistId,
-                    // GigId will be set when added to the Gig
                 });
             }
         }
 
         await repository.AddAsync(gig);
-        
-        // Refetch to get included entities for DTO
+
         var createdGig = await repository.GetByIdAsync(gig.Id);
         return MapToDto(createdGig!);
     }
@@ -77,21 +69,12 @@ public class GigService(IGigRepository repository) : IGigService
         gig.TicketType = request.TicketType;
         gig.ImageUrl = request.ImageUrl;
 
-        // Update Acts - Simple approach: Clear and Add
-        // In a real app, we might want to be smarter to preserve existing IDs or properties
-        // For this task, complete replacement of the list is often acceptable or expected for "Update"
-        
-        // We need to manage the collection carefully with EF Core.
-        // Since we have the entity tracked with Acts included
-        
-        // 1. Remove acts not in the new list
         var artistIdsToRemove = gig.Acts.Where(a => !request.ArtistIds.Contains(a.ArtistId)).ToList();
         foreach (var act in artistIdsToRemove)
         {
             gig.Acts.Remove(act);
         }
 
-        // 2. Add acts that are new
         var existingArtistIds = gig.Acts.Select(a => a.ArtistId).ToHashSet();
         foreach (var artistId in request.ArtistIds)
         {
@@ -102,6 +85,87 @@ public class GigService(IGigRepository repository) : IGigService
         }
 
         await repository.UpdateAsync(gig);
+        return MapToDto(gig);
+    }
+
+    public async Task<GetGigResponse> EnrichGigAsync(GigId id)
+    {
+        var gig = await repository.GetByIdAsync(id);
+        if (gig == null)
+        {
+            throw new NotFoundException($"Gig with ID {id} not found.");
+        }
+
+        var enrichment = await aiService.EnrichGig(gig);
+
+        if (enrichment.SupportActs.Any())
+        {
+            foreach (var actName in enrichment.SupportActs)
+            {
+                if (gig.Acts.Any(a => a.Artist.Name.Equals(actName, StringComparison.OrdinalIgnoreCase)))
+                    continue;
+
+                var artist = await db.Artist.FirstOrDefaultAsync(a => a.Name.ToLower() == actName.ToLower());
+
+                if (artist == null)
+                {
+                    artist = new Artist
+                    {
+                        Name = actName,
+                        Slug = Guid.NewGuid().ToString()
+                    };
+                    db.Artist.Add(artist);
+                    await db.SaveChangesAsync();
+                }
+
+                gig.Acts.Add(new GigArtist
+                {
+                    ArtistId = artist.Id,
+                    Artist = artist,
+                    IsHeadliner = false,
+                    GigId = gig.Id
+                });
+            }
+        }
+
+        if (enrichment.Setlist.Any())
+        {
+            var headliner = gig.Acts.FirstOrDefault(a => a.IsHeadliner);
+            if (headliner != null)
+            {
+                int order = 1;
+
+                foreach (var songTitle in enrichment.Setlist)
+                {
+                    var song = await db.Song.FirstOrDefaultAsync(s => s.ArtistId == headliner.ArtistId && s.Title.ToLower() == songTitle.ToLower());
+                    if (song == null)
+                    {
+                        song = new Song
+                        {
+                            ArtistId = headliner.ArtistId,
+                            Title = songTitle,
+                            Slug = Guid.NewGuid().ToString()
+                        };
+                        db.Song.Add(song);
+                        await db.SaveChangesAsync();
+                    }
+
+                    if (!headliner.Songs.Any(s => s.SongId == song.Id))
+                    {
+                        headliner.Songs.Add(new GigArtistSong
+                        {
+                            GigArtistId = headliner.Id,
+                            SongId = song.Id,
+                            Order = order
+                        });
+                    }
+                    order++;
+                }
+            }
+        }
+
+        await repository.UpdateAsync(gig);
+
         return MapToDto(gig);
     }
 

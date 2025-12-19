@@ -43,4 +43,11 @@ public class GigController(IGigService gigService) : ControllerBase
         await gigService.DeleteAsync(id);
         return NoContent();
     }
+
+    [HttpPost("{id}/enrich")]
+    public async Task<ActionResult<GetGigResponse>> Enrich(GigId id)
+    {
+        var gig = await gigService.EnrichGigAsync(id);
+        return Ok(gig);
+    }
 }
