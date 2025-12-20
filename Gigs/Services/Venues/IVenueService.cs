@@ -7,4 +7,5 @@ public interface IVenueService
 {
     Task<List<GetVenueResponse>> GetAllAsync();
     Task<GetVenueResponse> EnrichVenueAsync(VenueId id);
+    Task<int> EnrichAllVenuesAsync();
 }

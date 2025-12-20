@@ -181,6 +181,13 @@ jobs:
                 "ClientSecret": "${{ secrets.AUTH0_CLIENT_SECRET }}",
                 "Audience": "${{ secrets.AUTH0_AUDIENCE }}"
               },
+              "GoogleCalendar": {
+                "CalendarId": "josephpickering9@gmail.com"
+              },
+              "Spotify": {
+                "ClientId": "${{ secrets.SPOTIFY_CLIENT_ID }}",
+                "ClientSecret": "${{ secrets.SPOTIFY_CLIENT_SECRET }}"
+              },
               "VertexAi": {
                 "ProjectId": "${{ secrets.VERTEX_AI_PROJECT_ID }}",
                 "Location": "${{ secrets.VERTEX_AI_LOCATION }}",
@@ -201,6 +208,8 @@ jobs:
             Auth0:ClientId=${{ secrets.AUTH0_CLIENT_ID }}
             Auth0:ClientSecret=${{ secrets.AUTH0_CLIENT_SECRET }}
             Auth0:Audience=${{ secrets.AUTH0_AUDIENCE }}
+            Spotify:ClientId=${{ secrets.SPOTIFY_CLIENT_ID }}
+            Spotify:ClientSecret=${{ secrets.SPOTIFY_CLIENT_SECRET }}
             VertexAi:ProjectId=${{ secrets.VERTEX_AI_PROJECT_ID }}
             VertexAi:Location=${{ secrets.VERTEX_AI_LOCATION }}
             VertexAi:Collection=${{ secrets.VERTEX_AI_COLLECTION }}

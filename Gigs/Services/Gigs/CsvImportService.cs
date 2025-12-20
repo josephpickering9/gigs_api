@@ -22,6 +22,7 @@ public class CsvImportService(Database db) : ICsvImportService
 
         var records = csv.GetRecords<CsvGigRecord>();
         var count = 0;
+        var processedGigIds = new HashSet<GigId>();
 
         foreach (var record in records)
         {
@@ -30,15 +31,43 @@ public class CsvImportService(Database db) : ICsvImportService
                 continue;
             }
 
-            await ProcessRecordAsync(record);
-            count++;
+            try
+            {
+                await ProcessRecordAsync(record, processedGigIds);
+                count++;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error processing record {record.Headliner} @ {record.Venue}: {ex.Message}");
+                throw;
+            }
         }
 
-        await db.SaveChangesAsync();
+        try
+        {
+            await db.SaveChangesAsync();
+        }
+        catch (DbUpdateConcurrencyException ex)
+        {
+            // Reload all ends and try to apply changes? 
+            // In a batch import, this is hard. We'll simply log detail and rethrow for now.
+            foreach (var entry in ex.Entries)
+            {
+                var typeName = entry.Entity.GetType().Name;
+                var key = entry.Metadata.FindPrimaryKey();
+                var keyValues = key != null 
+                    ? string.Join(", ", key.Properties.Select(p => $"{p.Name}={entry.Property(p.Name).CurrentValue}")) 
+                    : "No Key";
+                    
+                Console.WriteLine($"Concurrency error on {typeName}. State: {entry.State}. Key: {keyValues}");
+            }
+            throw;
+        }
+
         return count;
     }
 
-    private async Task ProcessRecordAsync(CsvGigRecord record)
+    private async Task ProcessRecordAsync(CsvGigRecord record, HashSet<GigId> processedGigIds)
     {
         if (string.IsNullOrWhiteSpace(record.Venue) || string.IsNullOrWhiteSpace(record.City))
         {
@@ -46,10 +75,16 @@ public class CsvImportService(Database db) : ICsvImportService
         }
         var venue = await GetOrCreateVenueAsync(record.Venue, record.City);
 
-        var gig = await db.Gig
+        // Check Local first to avoid duplicates in the same batch
+        var gig = db.Gig.Local.FirstOrDefault(g => g.Date == record.Date && g.VenueId == venue.Id);
+
+        if (gig == null)
+        {
+            gig = await db.Gig
             .Include(g => g.Acts)
             .Include(g => g.Attendees)
             .FirstOrDefaultAsync(g => g.Date == record.Date && g.VenueId == venue.Id);
+        }
 
         if (gig == null)
         {
@@ -61,6 +96,12 @@ public class CsvImportService(Database db) : ICsvImportService
             };
             db.Gig.Add(gig);
         }
+
+        if (processedGigIds.Contains(gig.Id))
+        {
+            return;
+        }
+        processedGigIds.Add(gig.Id);
 
         gig.TicketCost = ParseCurrency(record.TicketCost);
         gig.TicketType = ParseTicketType(record.TicketType);
@@ -77,28 +118,55 @@ public class CsvImportService(Database db) : ICsvImportService
             }
         }
 
-        db.GigArtist.RemoveRange(gig.Acts);
-        gig.Acts.Clear();
-
+        // RECONCILE ACTS
+        // 1. Identify acts to add/update
+        var desiredArtists = new List<GigArtist>();
         var order = 0;
         foreach (var actInfo in acts)
         {
             var artist = await GetOrCreateArtistAsync(actInfo.Name);
-            var gigArtist = new GigArtist
+            
+            // Is this artist already in the gig?
+            var existingGigArtist = gig.Acts.FirstOrDefault(a => a.ArtistId == artist.Id);
+            
+            if (existingGigArtist != null)
             {
-                Gig = gig,
-                ArtistId = artist.Id,
-                IsHeadliner = actInfo.IsHeadliner,
-                Order = order++,
-                SetlistUrl = actInfo.IsHeadliner ? actInfo.SetlistUrl : null
-            };
-            gigArtist.Artist = artist; 
-            gig.Acts.Add(gigArtist);
+                // Update existing
+                existingGigArtist.IsHeadliner = actInfo.IsHeadliner;
+                existingGigArtist.Order = order++;
+                existingGigArtist.SetlistUrl = actInfo.IsHeadliner ? actInfo.SetlistUrl : existingGigArtist.SetlistUrl;
+                desiredArtists.Add(existingGigArtist);
+            }
+            else
+            {
+                // Create new
+                var newGigArtist = new GigArtist
+                {
+                    Gig = gig,
+                    ArtistId = artist.Id,
+                    Artist = artist,
+                    IsHeadliner = actInfo.IsHeadliner,
+                    Order = order++,
+                    SetlistUrl = actInfo.IsHeadliner ? actInfo.SetlistUrl : null
+                };
+                gig.Acts.Add(newGigArtist);
+                desiredArtists.Add(newGigArtist);
+            }
         }
 
-        db.GigAttendee.RemoveRange(gig.Attendees);
-        gig.Attendees.Clear();
+        // 2. Remove acts that are no longer present
+        // We use ToList() to avoid modification errors during iteration if we were removing directly,
+        // but here we just find the ones to remove.
+        var actsToRemove = gig.Acts.Where(existing => !desiredArtists.Any(desired => desired.ArtistId == existing.ArtistId)).ToList();
+        foreach (var toRemove in actsToRemove)
+        {
+            gig.Acts.Remove(toRemove);
+            // Optional: explicity mark for deletion if it wasn't tracked as a collection change automatically 
+            // (EF Core usually handles this if configured with Cascade delete or identifying relationships)
+        }
 
+        // RECONCILE ATTENDEES
+        var desiredPeople = new List<Person>();
         if (!string.IsNullOrWhiteSpace(record.WentWith))
         {
             var peopleNames = SplitWithAmpersandKeep(record.WentWith);
@@ -106,22 +174,37 @@ public class CsvImportService(Database db) : ICsvImportService
             {
                 if (string.IsNullOrWhiteSpace(name)) continue;
                 var person = await GetOrCreatePersonAsync(name);
-                var attendee = new GigAttendee
+                desiredPeople.Add(person);
+
+                if (!gig.Attendees.Any(a => a.PersonId == person.Id))
                 {
-                    Gig = gig,
-                    Person = person
-                };
-                gig.Attendees.Add(attendee);
+                    gig.Attendees.Add(new GigAttendee
+                    {
+                        Gig = gig,
+                        Person = person
+                    });
+                }
             }
+        }
+
+        var attendeesToRemove = gig.Attendees.Where(a => !desiredPeople.Any(dp => dp.Id == a.PersonId)).ToList();
+        foreach (var toRemove in attendeesToRemove)
+        {
+            gig.Attendees.Remove(toRemove);
         }
     }
 
     private async Task<Venue> GetOrCreateVenueAsync(string name, string city)
     {
-        var venue = await db.Venue.FirstOrDefaultAsync(v => v.Name == name && v.City == city);
+        // Check Local case-insensitive
+        var venue = db.Venue.Local.FirstOrDefault(v => 
+            v.Name.Equals(name, StringComparison.InvariantCultureIgnoreCase) && 
+            v.City.Equals(city, StringComparison.InvariantCultureIgnoreCase));
+
         if (venue == null)
         {
-            venue = db.Venue.Local.FirstOrDefault(v => v.Name == name && v.City == city);
+            // Database is usually case-insensitive by default in SQL, but good to be consistent
+            venue = await db.Venue.FirstOrDefaultAsync(v => v.Name == name && v.City == city);
         }
 
         if (venue == null)
@@ -139,10 +222,12 @@ public class CsvImportService(Database db) : ICsvImportService
 
     private async Task<Artist> GetOrCreateArtistAsync(string name)
     {
-        var artist = await db.Artist.FirstOrDefaultAsync(a => a.Name == name);
+        // Check Local case-insensitive
+        var artist = db.Artist.Local.FirstOrDefault(a => a.Name.Equals(name, StringComparison.InvariantCultureIgnoreCase));
+
         if (artist == null)
         {
-            artist = db.Artist.Local.FirstOrDefault(a => a.Name == name);
+            artist = await db.Artist.FirstOrDefaultAsync(a => a.Name == name);
         }
 
         if (artist == null)
@@ -159,10 +244,12 @@ public class CsvImportService(Database db) : ICsvImportService
 
     private async Task<Person> GetOrCreatePersonAsync(string name)
     {
-        var person = await db.Person.FirstOrDefaultAsync(p => p.Name == name);
+         // Check Local case-insensitive
+        var person = db.Person.Local.FirstOrDefault(p => p.Name.Equals(name, StringComparison.InvariantCultureIgnoreCase));
+
         if (person == null)
         {
-            person = db.Person.Local.FirstOrDefault(p => p.Name == name);
+            person = await db.Person.FirstOrDefaultAsync(p => p.Name == name);
         }
 
         if (person == null)

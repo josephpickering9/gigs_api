@@ -29,4 +29,11 @@ public class ArtistController(IArtistService artistService) : ControllerBase
             return NotFound(ex.Message);
         }
     }
+
+    [HttpPost("enrich-all")]
+    public async Task<ActionResult<int>> EnrichAllArtists()
+    {
+        var count = await artistService.EnrichAllArtistsAsync();
+        return Ok(count);
+    }
 }
