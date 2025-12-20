@@ -1,6 +1,6 @@
-@Work_Experience_Search_HostAddress = http://localhost:5105
+@Gigs_HostAddress = http://localhost:5105
 
-GET {{Work_Experience_Search_HostAddress}}/weatherforecast/
+GET {{Gigs_HostAddress}}/weatherforecast/
 Accept: application/json
 
 ###

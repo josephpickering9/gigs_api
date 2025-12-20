@@ -3,7 +3,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
-namespace Work_Experience_Search.Migrations
+namespace Gigs.Migrations
 {
     /// <inheritdoc />
     public partial class InitialGigsSchema : Migration

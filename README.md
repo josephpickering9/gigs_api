@@ -1,6 +1,6 @@
-# Work Experience (API)
+# Gigs (API)
 
-This project serves as the backend for the Work Experience website, built with .NET Core and utilizing a Postgres database for data persistence. It's designed to provide a robust and scalable API, ensuring secure and efficient access to data for the frontend application.
+This project serves as the backend for the Gigs website, built with .NET Core and utilizing a Postgres database for data persistence. It's designed to provide a robust and scalable API, ensuring secure and efficient access to data for the frontend application.
 
 ## Live Demo
 
@@ -17,7 +17,7 @@ Visit [api.gigs.josephpickering.co.uk](https://api.experience.josephpickering.co
 
 ## Overview
 
-The Work Experience API is a .NET Core application that provides a RESTful API for the Work Experience website. It's designed to be a scalable and reliable backend, providing access to data for the frontend application. The API is built with a focus on performance, security, and reliability, ensuring that it can handle the demands of a production environment.
+The Gigs API is a .NET Core application that provides a RESTful API for the Gigs website. It's designed to be a scalable and reliable backend, providing access to data for the frontend application. The API is built with a focus on performance, security, and reliability, ensuring that it can handle the demands of a production environment.
 
 ### Features
 
@@ -41,8 +41,8 @@ The Work Experience API is a .NET Core application that provides a RESTful API f
 1. **Clone the repository:**
 
    ```bash
-   git clone https://github.com/josephpickering9/work_experience_api.git
-   cd work_experience_api
+   git clone https://github.com/josephpickering9/gigs_api.git
+   cd gigs_api
     ```
    
 2. **Install dependencies:**
@@ -60,7 +60,7 @@ The Work Experience API is a .NET Core application that provides a RESTful API f
     Create a `.env` file (you can use .env.example as reference) in the root of the project and add the following environment variables:
 
     ```env
-    DATABASE_URL=postgres://username:password@localhost:5432/work_experience
+    DATABASE_URL=postgres://username:password@localhost:5432/gigs
     AUTH0_DOMAIN=your-auth0-domain
     AUTH0_AUDIENCE=your-auth0-audience
     ```
