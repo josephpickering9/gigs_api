@@ -2,7 +2,7 @@ name: Build & Deploy
 
 on:
   push:
-    branches: [develop]
+    branches: [main]
 
 jobs:
   delete-previous-artifacts:
@@ -70,7 +70,7 @@ jobs:
         id: export-deployment-matrix
         run: |
           delimiter="$(openssl rand -hex 8)"
-          JSON="$(cat ./'WorkExperienceSearch'/deployment-config.json)"
+          JSON="$(cat ./'Gigs'/deployment-config.json)"
           echo "deployment-matrix<<${delimiter}" >> "${GITHUB_OUTPUT}"
           echo "$JSON" >> "${GITHUB_OUTPUT}"
           echo "${delimiter}" >> "${GITHUB_OUTPUT}"
@@ -222,7 +222,7 @@ jobs:
             dotnet ef database update
 
             # Stop any currently running instance to avoid port conflicts and stale configs
-            port_pid=$(lsof -t -i:5000 -sTCP:LISTEN 2>/dev/null | head -n1)
+            port_pid=$(lsof -t -i:5002 -sTCP:LISTEN 2>/dev/null | head -n1)
             if [ -n "$port_pid" ]; then
               kill "$port_pid" || true
               sleep 2
@@ -238,7 +238,7 @@ jobs:
             cd "$RELEASE_BIN_PATH"
             LOG_PATH="${BASE_PATH}/logs"
             mkdir -p "$LOG_PATH"
-            nohup dotnet "WorkExperienceSearch.dll" > "$LOG_PATH/api.log" /dev/null 2>&1 &
+            nohup dotnet "Gigs.dll" > "$LOG_PATH/api.log" /dev/null 2>&1 &
   
   run-after-hooks:
     name: '${{ matrix.server.name }}: After hook'

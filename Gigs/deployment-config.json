@@ -6,6 +6,6 @@
     "password": "",
     "beforeHooks": "",
     "afterHooks": "",
-    "path": "/var/www/experience/api"
+    "path": "/var/www/gigs/api"
   }
 ]

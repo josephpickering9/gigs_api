@@ -9,7 +9,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
 #nullable disable
 
-namespace Work_Experience_Search.Migrations
+namespace Gigs.Migrations
 {
     [DbContext(typeof(Database))]
     [Migration("20251219192500_InitialGigsSchema")]
