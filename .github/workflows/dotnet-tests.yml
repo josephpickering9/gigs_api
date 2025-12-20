@@ -20,7 +20,7 @@ jobs:
         run: sudo curl -L "https://github.com/docker/compose/releases/download/1.29.2/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose && sudo chmod +x /usr/local/bin/docker-compose
 
       - name: Start Docker Compose
-        run: docker-compose -f WorkExperienceSearch/docker-compose.yml up -d
+        run: docker-compose -f Gigs/docker-compose.yml up -d
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
@@ -67,5 +67,5 @@ jobs:
           VertexAi__CredentialsJson: ${{ secrets.VERTEX_AI_CREDENTIALS_JSON }}
         
       - name: Shutdown Docker Compose
-        run: docker-compose -f WorkExperienceSearch/docker-compose.yml down
+        run: docker-compose -f Gigs/docker-compose.yml down
         if: always()

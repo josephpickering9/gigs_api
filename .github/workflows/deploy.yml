@@ -146,8 +146,8 @@ jobs:
         uses: appleboy/ssh-action@master
         env:
           GITHUB_SHA: ${{ github.sha }}
-          RELEASE_PATH: ${{ matrix.server.path }}/releases/${{ github.sha }}/WorkExperienceSearch
-          RELEASE_BIN_PATH: ${{ matrix.server.path }}/releases/${{ github.sha }}/WorkExperienceSearch/bin/Release/net8.0/publish
+          RELEASE_PATH: ${{ matrix.server.path }}/releases/${{ github.sha }}/Gigs
+          RELEASE_BIN_PATH: ${{ matrix.server.path }}/releases/${{ github.sha }}/Gigs/bin/Release/net8.0/publish
           ROOT_PATH: ${{ matrix.server.path }}/wwwroot
           ACTIVE_RELEASE_PATH: ${{ matrix.server.path }}/current
           BASE_PATH: ${{ matrix.server.path }}
