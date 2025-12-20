@@ -247,6 +247,7 @@ jobs:
             cd "$RELEASE_BIN_PATH"
             LOG_PATH="${BASE_PATH}/logs"
             mkdir -p "$LOG_PATH"
+            export ASPNETCORE_URLS="http://*:5002"
             nohup dotnet "Gigs.dll" > "$LOG_PATH/api.log" /dev/null 2>&1 &
   
   run-after-hooks:

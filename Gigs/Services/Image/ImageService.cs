@@ -92,6 +92,47 @@ public class ImageService : IImageService
         
         return fileName;
     }
+    public async Task<Result<int>> OptimiseAllImagesAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_tinifyApiKey))
+            return new Failure<int>("Tinify API key is not configured.");
+
+        var uploadDir = Path.Combine(_env.WebRootPath ?? _env.ContentRootPath, "uploads");
+        if (!Directory.Exists(uploadDir))
+            return new Failure<int>("Uploads directory does not exist.");
+
+        var files = Directory.GetFiles(uploadDir, "*.*")
+                             .Where(s => s.EndsWith(".jpg", StringComparison.OrdinalIgnoreCase) ||
+                                         s.EndsWith(".jpeg", StringComparison.OrdinalIgnoreCase) ||
+                                         s.EndsWith(".png", StringComparison.OrdinalIgnoreCase) ||
+                                         s.EndsWith(".webp", StringComparison.OrdinalIgnoreCase));
+        
+        var count = 0;
+        foreach (var file in files)
+        {
+            try 
+            {
+                var bytes = await File.ReadAllBytesAsync(file);
+                // We just use the method we already have
+                var result = await OptimiseImageAsync(bytes);
+                if (result.IsSuccess)
+                {
+                    await File.WriteAllBytesAsync(file, result.Data!);
+                    count++;
+                }
+                else
+                {
+                     _logger.LogWarning("Failed to optimise {File}: {Error}", Path.GetFileName(file), result.Error?.Message);
+                }
+            }
+            catch(Exception ex)
+            {
+                _logger.LogError(ex, "Error processing file {File}", Path.GetFileName(file));
+            }
+        }
+        
+        return new Success<int>(count);
+    }
 }
 
 public class ImageData

@@ -15,4 +15,11 @@ public class MediaController(IImageService imageService) : ControllerBase
 
         return File(imageData.Data.File, imageData.Data?.ContentType ?? "application/octet-stream");
     }
+
+    [HttpPost("optimise-all")]
+    public async Task<IActionResult> OptimiseAll()
+    {
+        var result = await imageService.OptimiseAllImagesAsync();
+        return result.ToResponse();
+    }
 }
