@@ -90,7 +90,13 @@ public class GigService(IGigRepository repository, Database db, IAiEnrichmentSer
 
     public async Task<GetGigResponse> EnrichGigAsync(GigId id)
     {
-        var gig = await repository.GetByIdAsync(id);
+        var gig = await db.Gig
+            .Include(g => g.Venue)
+            .Include(g => g.Acts).ThenInclude(ga => ga.Artist)
+            .Include(g => g.Acts).ThenInclude(ga => ga.Songs).ThenInclude(s => s.Song)
+            .Include(g => g.Attendees)
+            .FirstOrDefaultAsync(g => g.Id == id);
+            
         if (gig == null)
         {
             throw new NotFoundException($"Gig with ID {id} not found.");
@@ -98,12 +104,18 @@ public class GigService(IGigRepository repository, Database db, IAiEnrichmentSer
 
         var enrichment = await aiService.EnrichGig(gig);
 
+        // Track existing artist names to avoid duplicates
+        var existingArtistNames = gig.Acts
+            .Where(a => a.Artist != null)
+            .Select(a => a.Artist.Name.ToLower())
+            .ToHashSet();
 
         if (enrichment.SupportActs.Any())
         {
             foreach (var actName in enrichment.SupportActs)
             {
-                if (gig.Acts.Any(a => a.Artist.Name.Equals(actName, StringComparison.OrdinalIgnoreCase)))
+                // Skip if already exists
+                if (existingArtistNames.Contains(actName.ToLower()))
                     continue;
 
                 var artist = db.Artist.Local.FirstOrDefault(a => a.Name.Equals(actName, StringComparison.CurrentCultureIgnoreCase))
@@ -117,15 +129,19 @@ public class GigService(IGigRepository repository, Database db, IAiEnrichmentSer
                         Slug = Guid.NewGuid().ToString()
                     };
                     db.Artist.Add(artist);
+                    await db.SaveChangesAsync(); // Save immediately to get the ID
                 }
 
-                gig.Acts.Add(new GigArtist
+                // Directly add GigArtist to DbContext instead of navigation collection
+                db.GigArtist.Add(new GigArtist
                 {
-                    ArtistId = artist.Id, 
-                    Artist = artist,
+                    GigId = gig.Id,
+                    ArtistId = artist.Id,
                     IsHeadliner = false,
-                    GigId = gig.Id
+                    Order = 0
                 });
+                
+                existingArtistNames.Add(actName.ToLower());
             }
         }
 
@@ -134,10 +150,23 @@ public class GigService(IGigRepository repository, Database db, IAiEnrichmentSer
             var headliner = gig.Acts.FirstOrDefault(a => a.IsHeadliner);
             if (headliner != null)
             {
+                // Get existing song titles for this headliner
+                var existingSongTitles = headliner.Songs
+                    .Where(s => s.Song != null)
+                    .Select(s => s.Song.Title.ToLower())
+                    .ToHashSet();
+
                 int order = 1;
 
                 foreach (var songTitle in enrichment.Setlist)
                 {
+                    // Skip if already exists
+                    if (existingSongTitles.Contains(songTitle.ToLower()))
+                    {
+                        order++;
+                        continue;
+                    }
+
                     var song = db.Song.Local.FirstOrDefault(s => s.ArtistId == headliner.ArtistId && s.Title.Equals(songTitle, StringComparison.CurrentCultureIgnoreCase))
                                ?? await db.Song.FirstOrDefaultAsync(s => s.ArtistId == headliner.ArtistId && s.Title.ToLower() == songTitle.ToLower());
 
@@ -150,24 +179,24 @@ public class GigService(IGigRepository repository, Database db, IAiEnrichmentSer
                             Slug = Guid.NewGuid().ToString()
                         };
                         db.Song.Add(song);
+                        await db.SaveChangesAsync(); // Save immediately to get the ID
                     }
 
-                    if (!headliner.Songs.Any(s => s.Song != null ? s.Song.Title.Equals(songTitle, StringComparison.CurrentCultureIgnoreCase) : s.SongId == song.Id))
+                    // Directly add GigArtistSong to DbContext instead of navigation collection
+                    db.GigArtistSong.Add(new GigArtistSong
                     {
-                        headliner.Songs.Add(new GigArtistSong
-                        {
-                            GigArtistId = headliner.Id,
-                            SongId = song.Id,
-                            Song = song,
-                            Order = order
-                        });
-                    }
+                        GigArtistId = headliner.Id,
+                        SongId = song.Id,
+                        Order = order
+                    });
+                    
+                    existingSongTitles.Add(songTitle.ToLower());
                     order++;
                 }
             }
         }
 
-        await repository.UpdateAsync(gig);
+        await db.SaveChangesAsync();
 
         return MapToDto(gig);
     }
