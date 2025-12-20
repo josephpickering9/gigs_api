@@ -21,6 +21,8 @@ public class ImportCalendarEventsResponse
     public int EventsFound { get; set; }
     public int GigsCreated { get; set; }
     public int GigsUpdated { get; set; }
+    public int EventsSkipped { get; set; }
+    public int VenuesCreated { get; set; }
     public string Message { get; set; } = null!;
 }
 

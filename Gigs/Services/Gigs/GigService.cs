@@ -38,14 +38,21 @@ public class GigService(IGigRepository repository, Database db, IAiEnrichmentSer
             Slug = Guid.NewGuid().ToString() // Or generate a slug from venue/date
         };
 
-        if (request.ArtistIds.Any())
+        if (request.Acts.Any())
         {
-            foreach (var artistId in request.ArtistIds)
+            foreach (var actRequest in request.Acts)
             {
-                gig.Acts.Add(new GigArtist
+                var gigArtist = new GigArtist
                 {
-                    ArtistId = artistId,
-                });
+                    ArtistId = actRequest.ArtistId,
+                    IsHeadliner = actRequest.IsHeadliner,
+                    Order = actRequest.Order,
+                    SetlistUrl = actRequest.SetlistUrl
+                };
+
+                await ProcessSetlist(gigArtist, actRequest.Setlist, actRequest.ArtistId);
+                
+                gig.Acts.Add(gigArtist);
             }
         }
 
@@ -69,18 +76,35 @@ public class GigService(IGigRepository repository, Database db, IAiEnrichmentSer
         gig.TicketType = request.TicketType;
         gig.ImageUrl = request.ImageUrl;
 
-        var artistIdsToRemove = gig.Acts.Where(a => !request.ArtistIds.Contains(a.ArtistId)).ToList();
-        foreach (var act in artistIdsToRemove)
+        var requestedArtistIds = request.Acts.Select(a => a.ArtistId).ToHashSet();
+        var actsToRemove = gig.Acts.Where(a => !requestedArtistIds.Contains(a.ArtistId)).ToList();
+        foreach (var act in actsToRemove)
         {
             gig.Acts.Remove(act);
         }
 
-        var existingArtistIds = gig.Acts.Select(a => a.ArtistId).ToHashSet();
-        foreach (var artistId in request.ArtistIds)
+        foreach (var actRequest in request.Acts)
         {
-            if (!existingArtistIds.Contains(artistId))
+            var existingAct = gig.Acts.FirstOrDefault(a => a.ArtistId == actRequest.ArtistId);
+            if (existingAct != null)
             {
-                gig.Acts.Add(new GigArtist { ArtistId = artistId, GigId = gig.Id });
+                existingAct.IsHeadliner = actRequest.IsHeadliner;
+                existingAct.Order = actRequest.Order;
+                existingAct.SetlistUrl = actRequest.SetlistUrl;
+                await ProcessSetlist(existingAct, actRequest.Setlist, actRequest.ArtistId);
+            }
+            else
+            {
+                var newAct = new GigArtist
+                {
+                    ArtistId = actRequest.ArtistId,
+                    GigId = gig.Id,
+                    IsHeadliner = actRequest.IsHeadliner,
+                    Order = actRequest.Order,
+                    SetlistUrl = actRequest.SetlistUrl
+                };
+                await ProcessSetlist(newAct, actRequest.Setlist, actRequest.ArtistId);
+                gig.Acts.Add(newAct);
             }
         }
 
@@ -201,6 +225,41 @@ public class GigService(IGigRepository repository, Database db, IAiEnrichmentSer
         return MapToDto(gig);
     }
 
+    public async Task<int> EnrichAllGigsAsync()
+    {
+        // We need all gigs with their acts and songs to determine if they are missing data
+        var allGigs = await db.Gig
+            .Include(g => g.Acts).ThenInclude(ga => ga.Songs)
+            .OrderByDescending(g => g.Date)
+            .ToListAsync();
+
+        var candidates = allGigs.Where(gig => 
+            // Condition 1: Missing Support Acts (Contains only headliner or fewer)
+            // Note: Some gigs genuinely have no support, but we check if count <= 1 as a heuristic
+            gig.Acts.Count <= 1 
+            || 
+            // Condition 2: Headliner exists but has no songs (Missing setlist)
+            gig.Acts.Any(a => a.IsHeadliner && !a.Songs.Any())
+        ).ToList();
+
+        var count = 0;
+        foreach (var gig in candidates)
+        {
+            try
+            {
+                // Re-use logic. Note: EnrichGigAsync refetches the gig, which is fine but slightly inefficient.
+                // Given the heavy AI calls, the DB fetch overhead is negligible.
+                await EnrichGigAsync(gig.Id);
+                count++;
+            }
+            catch (Exception)
+            {
+                // Continue with next
+            }
+        }
+        return count;
+    }
+
     public async Task DeleteAsync(GigId id)
     {
         await repository.DeleteAsync(id);
@@ -216,15 +275,51 @@ public class GigService(IGigRepository repository, Database db, IAiEnrichmentSer
             Date = gig.Date,
             TicketCost = gig.TicketCost,
             TicketType = gig.TicketType,
-            ImageUrl = gig.ImageUrl,
+            ImageUrl = gig.ImageUrl ?? gig.Acts.FirstOrDefault(a => a.IsHeadliner)?.Artist?.ImageUrl ?? gig.Venue?.ImageUrl,
             Slug = gig.Slug,
             Acts = gig.Acts.Select(a => new GetGigArtistResponse
             {
                 ArtistId = a.ArtistId,
                 Name = a.Artist?.Name ?? "Unknown Artist",
                 IsHeadliner = a.IsHeadliner,
-                ImageUrl = a.Artist?.ImageUrl
+                ImageUrl = a.Artist?.ImageUrl,
+                Setlist = a.Songs.OrderBy(s => s.Order).Select(s => s.Song.Title).ToList()
             }).OrderByDescending(a => a.IsHeadliner).ThenBy(a => a.Name).ToList()
         };
+    }
+
+    private async Task ProcessSetlist(GigArtist gigArtist, List<string> setlist, ArtistId artistId)
+    {
+        // Clear existing songs from the join table to overwrite with new list
+        // This is a simple approach; for more efficiency we could diff them,
+        // but since we are re-ordering, full replace is often safer/easier.
+        gigArtist.Songs.Clear();
+
+        if (!setlist.Any()) return;
+
+        int order = 1;
+        foreach (var songTitle in setlist)
+        {
+            var song = db.Song.Local.FirstOrDefault(s => s.ArtistId == artistId && s.Title.Equals(songTitle, StringComparison.CurrentCultureIgnoreCase))
+                       ?? await db.Song.FirstOrDefaultAsync(s => s.ArtistId == artistId && s.Title.ToLower() == songTitle.ToLower());
+
+            if (song == null)
+            {
+                song = new Song
+                {
+                    ArtistId = artistId,
+                    Title = songTitle,
+                    Slug = Guid.NewGuid().ToString()
+                };
+                db.Song.Add(song);
+                await db.SaveChangesAsync();
+            }
+
+            gigArtist.Songs.Add(new GigArtistSong
+            {
+                SongId = song.Id,
+                Order = order++
+            });
+        }
     }
 }

@@ -1,7 +1,7 @@
+using Gigs.Services.Image;
 using Microsoft.AspNetCore.Mvc;
-using Work_Experience_Search.Services.Image;
 
-namespace Work_Experience_Search.Controllers;
+namespace Gigs.Controllers;
 
 [ApiController]
 [Route("[controller]")]

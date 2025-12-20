@@ -19,12 +19,5 @@ public class UpsertGigRequest
 
     public string? ImageUrl { get; set; }
     
-    // For simplicity in this iteration, we might just take IDs or basic info for acts/attendees
-    // but the requirement asked for "relating elements". 
-    // Let's assume for now we are just managing the core Gig properties and maybe linked generic IDs if needed.
-    // The user asked to "add/update/get/delete a gig and it's relating elements".
-    // "Relating elements" likely implies Acts (Artists) and Attendees (People).
-    // For a creation request, we usually pass IDs.
-    
-    public List<ArtistId> ArtistIds { get; set; } = [];
+    public List<GigArtistRequest> Acts { get; set; } = [];
 }

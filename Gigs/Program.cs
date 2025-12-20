@@ -38,9 +38,7 @@ builder.Services.AddScoped<ICsvImportService, CsvImportService>();
 builder.Services.AddScoped<IDashboardService, DashboardService>();
 builder.Services.AddScoped<Gigs.Services.AI.IAiEnrichmentService, Gigs.Services.AI.AiEnrichmentService>();
 builder.Services.AddScoped<Gigs.Services.Calendar.IGoogleCalendarService, Gigs.Services.Calendar.GoogleCalendarService>();
-
-
-
+builder.Services.AddScoped<Gigs.Services.External.ISpotifyService, Gigs.Services.External.SpotifyService>();
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>

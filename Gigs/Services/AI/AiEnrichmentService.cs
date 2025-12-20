@@ -38,7 +38,7 @@ public class AiEnrichmentService : IAiEnrichmentService
         _location = configuration["VertexAi:ModelLocation"] ?? "us-central1";
         _publisher = "google";
         _model = configuration["VertexAi:Model"] ?? "gemini-1.5-pro-001";
-        
+
         var credentialsJson = configuration["VertexAi:CredentialsJson"];
         var credentialsFile = configuration["VertexAi:CredentialsFile"];
 
@@ -63,7 +63,7 @@ public class AiEnrichmentService : IAiEnrichmentService
         {
             _logger.LogInformation("Using Application Default Credentials (ADC) for Vertex AI.");
         }
-        
+
         _predictionServiceClient = builder.Build();
     }
 
@@ -109,7 +109,7 @@ Output strictly in JSON format:
                 {
                     // Structuring for Gemini API input via PredictionServiceClient can be tricky essentially wrapping the Content
                     // However, for Gemini we typically use the GenerateContent methods if using the specialized Gemini client.
-                    // But with PredictionServiceClient, we send raw instances. 
+                    // But with PredictionServiceClient, we send raw instances.
                     // Let's stick effectively to the raw JSON approach or switch to `Google.Cloud.AIPlatform.V1.GenerativeModel` if available in this package version.
                     // Actually, for simplicity and standard usage with `Google.Cloud.AIPlatform.V1`, we usually use `PredictionServiceClient` with the "generateContent" custom method or similar.
                     // A better approach for Gemini specifically in recent SDKs is effectively ensuring we send the right payload.
@@ -117,9 +117,9 @@ Output strictly in JSON format:
                 }
             }
         };
-        
+
         // Wait, strictly speaking, for Gemini models on Vertex AI, we should use the `PredictionServiceClient.GenerateContentAsync` method which takes a `GenerateContentRequest`.
-        
+
         var generateContentRequest = new GenerateContentRequest
         {
             Model = endpoint,
@@ -137,9 +137,9 @@ Output strictly in JSON format:
         try
         {
             var response = await _predictionServiceClient.GenerateContentAsync(generateContentRequest);
-            
+
             responseText = response.Candidates.FirstOrDefault()?.Content?.Parts.FirstOrDefault()?.Text;
-            
+
             if (string.IsNullOrEmpty(responseText))
             {
                 _logger.LogWarning("Empty response from AI for Gig {GigId}", gig.Id);
@@ -166,7 +166,7 @@ Output strictly in JSON format:
                 ReadCommentHandling = JsonCommentHandling.Skip,
                 AllowTrailingCommas = true
             };
-            
+
             var result = JsonSerializer.Deserialize<AiEnrichmentResult>(responseText, options);
             return result ?? new AiEnrichmentResult();
         }
@@ -198,8 +198,7 @@ I have an artist named: {artistName}
 Please provide a direct URL to a high-quality, representative image of this artist.
 Prefer official press photos or album covers if possible.
 Ensure the URL is likely to be valid and publicly accessible.
-If you cannot find a specific URL, provide a URL to their Wikipedia page 'image' or a similar reliable source.
-Actually, just try your best to give me a direct image link (ending in .jpg, .png etc).
+Try your best to give me a direct image link (ending in .jpg, .png etc).
 
 Output ONLY the URL. Do not output JSON. Just the raw URL string.
 If you absolutely cannot find one, return 'null'.

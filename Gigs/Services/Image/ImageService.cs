@@ -10,10 +10,12 @@ public class ImageService : IImageService
 {
     private readonly IWebHostEnvironment _env;
     private readonly string? _tinifyApiKey;
+    private readonly ILogger<ImageService> _logger;
 
-    public ImageService(IWebHostEnvironment hostEnvironment, IConfiguration configuration)
+    public ImageService(IWebHostEnvironment hostEnvironment, IConfiguration configuration, ILogger<ImageService> logger)
     {
         _env = hostEnvironment;
+        _logger = logger;
         _tinifyApiKey = configuration["Tinify:ApiKey"];
 
         if (!string.IsNullOrWhiteSpace(_tinifyApiKey))
@@ -63,6 +65,22 @@ public class ImageService : IImageService
 
     public async Task<string> SaveImageAsync(string fileName, byte[] data)
     {
+        // Attempt optimization
+        var imageToSave = data;
+        
+        if (!string.IsNullOrWhiteSpace(_tinifyApiKey))
+        {
+            var optimizationResult = await OptimiseImageAsync(data);
+            if (optimizationResult.IsSuccess && optimizationResult.Data != null)
+            {
+                imageToSave = optimizationResult.Data;
+            }
+            else
+            {
+                _logger.LogWarning("Image optimization failed for {FileName}: {Error}. Saving original image.", fileName, optimizationResult.Error?.Message);
+            }
+        }
+
         var uploadDir = Path.Combine(_env.WebRootPath ?? _env.ContentRootPath, "uploads");
         if (!Directory.Exists(uploadDir))
         {
@@ -70,7 +88,7 @@ public class ImageService : IImageService
         }
 
         var filePath = Path.Combine(uploadDir, fileName);
-        await File.WriteAllBytesAsync(filePath, data);
+        await File.WriteAllBytesAsync(filePath, imageToSave);
         
         return fileName;
     }

@@ -50,4 +50,11 @@ public class GigController(IGigService gigService) : ControllerBase
         var gig = await gigService.EnrichGigAsync(id);
         return Ok(gig);
     }
+
+    [HttpPost("enrich-all")]
+    public async Task<ActionResult<int>> EnrichAllGigs()
+    {
+        var count = await gigService.EnrichAllGigsAsync();
+        return Ok(count);
+    }
 }

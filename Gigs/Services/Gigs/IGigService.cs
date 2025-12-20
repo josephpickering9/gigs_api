@@ -11,5 +11,6 @@ public interface IGigService
     Task<GetGigResponse> CreateAsync(UpsertGigRequest request);
     Task<GetGigResponse> UpdateAsync(GigId id, UpsertGigRequest request);
     Task<GetGigResponse> EnrichGigAsync(GigId id);
+    Task<int> EnrichAllGigsAsync();
     Task DeleteAsync(GigId id);
 }

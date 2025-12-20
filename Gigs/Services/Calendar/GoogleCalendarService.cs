@@ -110,6 +110,8 @@ public class GoogleCalendarService : IGoogleCalendarService
 
         int created = 0;
         int updated = 0;
+        int skipped = 0;
+        int venuesAtStart = await _db.Venue.CountAsync();
 
         foreach (var calendarEvent in events)
         {
@@ -126,20 +128,29 @@ public class GoogleCalendarService : IGoogleCalendarService
                     else
                         updated++;
                 }
+                else
+                {
+                    skipped++;
+                }
             }
             catch (DbUpdateConcurrencyException)
             {
                 // Skip this event and continue - likely a duplicate or concurrent modification
+                skipped++;
                 continue;
             }
         }
+
+        int venuesCreated = await _db.Venue.CountAsync() - venuesAtStart;
 
         return new ImportCalendarEventsResponse
         {
             EventsFound = events.Count,
             GigsCreated = created,
             GigsUpdated = updated,
-            Message = $"Successfully processed {events.Count} events: {created} created, {updated} updated"
+            EventsSkipped = skipped,
+            VenuesCreated = venuesCreated,
+            Message = $"Processed {events.Count} events: {created} created, {updated} updated, {skipped} skipped, {venuesCreated} venues created"
         };
     }
 
@@ -169,55 +180,63 @@ public class GoogleCalendarService : IGoogleCalendarService
                 Slug = Guid.NewGuid().ToString()
             };
             _db.Gig.Add(existingGig);
+            
+            // Save the new gig first so it gets an ID
+            await _db.SaveChangesAsync();
         }
 
         // Update gig details
         if (gigInfo.TicketCost.HasValue)
             existingGig.TicketCost = gigInfo.TicketCost;
 
-        // Clear existing acts - delete them directly to avoid tracking issues
-        if (!isNew)
+        // Only update artists if the gig is new OR if it has no artists attached
+        // This preserves manual edits made to gigs after they were imported
+        if (isNew || !existingGig.Acts.Any())
         {
-            var existingActIds = await _db.GigArtist
-                .Where(ga => ga.GigId == existingGig.Id)
-                .Select(ga => ga.Id)
-                .ToListAsync();
-
-            if (existingActIds.Any())
+            // Clear existing acts - delete them directly to avoid tracking issues
+            if (!isNew)
             {
-                await _db.GigArtist
-                    .Where(ga => existingActIds.Contains(ga.Id))
-                    .ExecuteDeleteAsync();
+                var existingActIds = await _db.GigArtist
+                    .Where(ga => ga.GigId == existingGig.Id)
+                    .Select(ga => ga.Id)
+                    .ToListAsync();
+
+                if (existingActIds.Any())
+                {
+                    await _db.GigArtist
+                        .Where(ga => existingActIds.Contains(ga.Id))
+                        .ExecuteDeleteAsync();
+                }
+
+                // Clear the navigation property
+                existingGig.Acts.Clear();
             }
 
-            // Clear the navigation property
-            existingGig.Acts.Clear();
-        }
-
-        // Add headliner
-        var headlinerArtist = await GetOrCreateArtistAsync(gigInfo.ArtistName);
-        var headlinerGigArtist = new GigArtist
-        {
-            GigId = existingGig.Id,
-            ArtistId = headlinerArtist.Id,
-            IsHeadliner = true,
-            Order = 0
-        };
-        _db.GigArtist.Add(headlinerGigArtist);
-
-        // Add support acts if any
-        int order = 1;
-        foreach (var supportName in gigInfo.SupportActs)
-        {
-            var supportArtist = await GetOrCreateArtistAsync(supportName);
-            var supportGigArtist = new GigArtist
+            // Add headliner
+            var headlinerArtist = await GetOrCreateArtistAsync(gigInfo.ArtistName);
+            var headlinerGigArtist = new GigArtist
             {
                 GigId = existingGig.Id,
-                ArtistId = supportArtist.Id,
-                IsHeadliner = false,
-                Order = order++
+                ArtistId = headlinerArtist.Id,
+                IsHeadliner = true,
+                Order = 0
             };
-            _db.GigArtist.Add(supportGigArtist);
+            _db.GigArtist.Add(headlinerGigArtist);
+
+            // Add support acts if any
+            int order = 1;
+            foreach (var supportName in gigInfo.SupportActs)
+            {
+                var supportArtist = await GetOrCreateArtistAsync(supportName);
+                var supportGigArtist = new GigArtist
+                {
+                    GigId = existingGig.Id,
+                    ArtistId = supportArtist.Id,
+                    IsHeadliner = false,
+                    Order = order++
+                };
+                _db.GigArtist.Add(supportGigArtist);
+            }
         }
 
         return isNew;
@@ -225,96 +244,98 @@ public class GoogleCalendarService : IGoogleCalendarService
 
     private async Task<GigInfo?> ParseCalendarEvent(CalendarEventDto calendarEvent)
     {
-        // Strategy 1: Use location field to match against existing venues
-        // Strategy 2: If no location match, check if event title matches an existing artist
+        // STRICT matching: Only import if event name matches an artist OR location matches a venue
+        // This prevents non-gig events from being imported
         
         var title = calendarEvent.Title.Trim();
         var location = calendarEvent.Location?.Trim();
         var description = calendarEvent.Description?.Trim();
 
         Venue? venue = null;
+        Artist? matchedArtist = null;
         
-        // Try to match venue from location
-        if (!string.IsNullOrWhiteSpace(location))
+        // Strategy 1: Check if event title matches an existing artist (EXACT match)
+        if (!string.IsNullOrWhiteSpace(title))
         {
-            // Location could be in various formats:
-            // - "Venue Name"
-            // - "Venue Name, City"
-            // - "Venue Name, Address, City"
+            // Try exact match first
+            matchedArtist = await _db.Artist.FirstOrDefaultAsync(a => a.Name.ToLower() == title.ToLower());
             
-            var locationParts = location.Split(',').Select(p => p.Trim()).ToArray();
-
-            // Try contains match first (more flexible)
-            venue = await _db.Venue.FirstOrDefaultAsync(v => v.Name.ToLower().Contains(location.ToLower()));
-
-            // If not found and location has multiple parts, try the first part as venue name
-            if (venue == null && locationParts.Length > 0)
+            if (matchedArtist == null)
             {
-                var venueName = locationParts[0];
-                venue = await _db.Venue.FirstOrDefaultAsync(v => v.Name == venueName);
-
-                // If still not found, try matching venue name and city
-                if (venue == null && locationParts.Length > 1)
-                {
-                    var city = locationParts[^1]; // Last part is usually city
-                    venue = await _db.Venue.FirstOrDefaultAsync(v => v.Name == venueName && v.City == city);
-                }
-            }
-        }
-
-        // Strategy 2: If no venue found, check if title matches an existing artist
-        if (venue == null)
-        {
-            // Check if the event title (or cleaned title) matches an artist name
-            var potentialArtist = await _db.Artist.FirstOrDefaultAsync(a => a.Name.ToLower() == title.ToLower());
-            
-            if (potentialArtist == null)
-            {
-                // Try removing common suffixes
+                // Try removing common suffixes for artist matching
                 var cleanedTitle = title
                     .Replace(" (Live)", "", StringComparison.OrdinalIgnoreCase)
                     .Replace(" - Live", "", StringComparison.OrdinalIgnoreCase)
                     .Trim();
                     
-                potentialArtist = await _db.Artist.FirstOrDefaultAsync(a => a.Name.ToLower() == cleanedTitle.ToLower());
+                matchedArtist = await _db.Artist.FirstOrDefaultAsync(a => a.Name.ToLower() == cleanedTitle.ToLower());
             }
             
-            // If we found a matching artist but no venue, we can't create a gig
-            // (gigs require a venue). Return null.
-            if (potentialArtist != null && string.IsNullOrWhiteSpace(location))
+            // If title has "@ " pattern, try matching the part before "@"
+            if (matchedArtist == null && title.Contains(" @ "))
             {
-                return null; // Artist match but no location = can't determine venue
+                var artistPart = title.Split(" @ ")[0].Trim();
+                matchedArtist = await _db.Artist.FirstOrDefaultAsync(a => a.Name.ToLower() == artistPart.ToLower());
             }
-            
-            // If artist matched and we have a location, try to extract venue from location string
-            if (potentialArtist != null && !string.IsNullOrWhiteSpace(location))
+        }
+        
+        // Strategy 2: Check if location matches an existing venue (EXACT or START match only)
+        if (!string.IsNullOrWhiteSpace(location))
+        {
+            var locationParts = location.Split(',').Select(p => p.Trim()).ToArray();
+
+            // Try exact match of full location
+            venue = await _db.Venue.FirstOrDefaultAsync(v => v.Name.ToLower() == location.ToLower());
+
+            // If not found, try first part (venue name) exactly
+            if (venue == null && locationParts.Length > 0)
             {
-                var locationParts = location.Split(',').Select(p => p.Trim()).ToArray();
-                if (locationParts.Length > 0)
+                var venueName = locationParts[0];
+                venue = await _db.Venue.FirstOrDefaultAsync(v => v.Name.ToLower() == venueName.ToLower());
+
+                // If still not found, try matching with city
+                if (venue == null && locationParts.Length > 1)
                 {
-                    venue = await _db.Venue.FirstOrDefaultAsync(v => v.Name.ToLower().Contains(locationParts[0].ToLower()));
+                    var city = locationParts[^1];
+                    venue = await _db.Venue.FirstOrDefaultAsync(v => 
+                        v.Name.ToLower() == venueName.ToLower() && v.City.ToLower() == city.ToLower());
                 }
             }
         }
 
-        if (venue == null)
+        // CRITICAL: Only proceed if we matched EITHER an artist OR a venue
+        // If neither matched, this is NOT a gig
+        if (matchedArtist == null && venue == null)
         {
-            return null; // No venue match and no artist match = not a gig
+            return null; // Neither artist nor venue matched = not a gig
+        }
+        
+        // If we matched an artist but no venue, we need a location to continue
+        if (matchedArtist != null && venue == null)
+        {
+            // Artist matched but no venue - skip this event
+            // We can't create a gig without a venue
+            return null;
         }
 
-        // Parse artist name from title
-        // Remove common patterns like "@ Venue" or "- Venue" from the title
+        // At this point, we have a venue (and maybe a matched artist)
+        // Parse artist name from title if we didn't match one already
         var artistName = title;
-
-        // Remove venue name from title if present
-        artistName = artistName.Replace($" @ {venue.Name}", "", StringComparison.OrdinalIgnoreCase);
-        artistName = artistName.Replace($" at {venue.Name}", "", StringComparison.OrdinalIgnoreCase);
-        artistName = artistName.Replace($" - {venue.Name}", "", StringComparison.OrdinalIgnoreCase);
-        artistName = artistName.Trim();
-
+        
+        // Only try to clean venue references if they're clearly demarcated
+        if (title.Contains(" @ "))
+        {
+            artistName = title.Split(" @ ")[0].Trim();
+        }
+        else if (title.Contains(" at "))
+        {
+            artistName = title.Split(" at ")[0].Trim();
+        }
+        
+        // If we ended up with an empty string, use the full title
         if (string.IsNullOrWhiteSpace(artistName))
         {
-            artistName = title; // Fall back to full title if cleaning removed everything
+            artistName = title;
         }
 
         // Parse description for support acts and ticket cost

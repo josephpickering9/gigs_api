@@ -57,6 +57,27 @@ public class VenueService(
         return MapToDto(venue);
     }
 
+    public async Task<int> EnrichAllVenuesAsync()
+    {
+        var venues = await repository.GetAllAsync();
+        var missingDataVenues = venues.Where(v => string.IsNullOrWhiteSpace(v.ImageUrl)).ToList();
+        var count = 0;
+
+        foreach (var venue in missingDataVenues)
+        {
+            try
+            {
+                await EnrichVenueAsync(venue.Id);
+                count++;
+            }
+            catch (Exception)
+            {
+                // Continue with next venue
+            }
+        }
+        return count;
+    }
+
     private static GetVenueResponse MapToDto(Venue venue)
     {
         return new GetVenueResponse

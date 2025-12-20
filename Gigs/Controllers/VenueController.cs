@@ -29,4 +29,11 @@ public class VenueController(IVenueService venueService) : ControllerBase
             return NotFound(ex.Message);
         }
     }
+
+    [HttpPost("enrich-all")]
+    public async Task<ActionResult<int>> EnrichAllVenues()
+    {
+        var count = await venueService.EnrichAllVenuesAsync();
+        return Ok(count);
+    }
 }
