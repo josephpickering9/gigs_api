@@ -19,6 +19,7 @@ builder.Services.AddDbContext<Database>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection"), o => o.CommandTimeout(300))
 );
 
+builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<IFileService, FileService>();
 builder.Services.AddScoped<IImageService, ImageService>();
 builder.Services.AddHttpClient();
@@ -36,6 +37,7 @@ builder.Services.AddScoped<IVenueService, VenueService>();
 builder.Services.AddScoped<ICsvImportService, CsvImportService>();
 builder.Services.AddScoped<IDashboardService, DashboardService>();
 builder.Services.AddScoped<Gigs.Services.AI.IAiEnrichmentService, Gigs.Services.AI.AiEnrichmentService>();
+builder.Services.AddScoped<Gigs.Services.Calendar.IGoogleCalendarService, Gigs.Services.Calendar.GoogleCalendarService>();
 
 
 
