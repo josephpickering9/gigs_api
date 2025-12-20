@@ -9,7 +9,7 @@ namespace Gigs.Repositories;
 
 public class GigRepository(Database database) : IGigRepository
 {
-    public async Task<List<Gig>> GetAllAsync(GetGigsFilter filter)
+    public async Task<(List<Gig> Items, int TotalCount)> GetAllAsync(GetGigsFilter filter)
     {
         var query = database.Gig
             .Include(g => g.Venue)
@@ -43,9 +43,29 @@ public class GigRepository(Database database) : IGigRepository
             query = query.Where(g => g.Acts.Any(a => a.ArtistId == filter.ArtistId.Value));
         }
 
-        return await query
+        if (!string.IsNullOrWhiteSpace(filter.Search))
+        {
+            var searchTerm = filter.Search.ToLower();
+            query = query.Where(g => 
+                (g.Venue != null && g.Venue.Name.ToLower().Contains(searchTerm)) ||
+                g.Acts.Any(a => a.Artist != null && a.Artist.Name.ToLower().Contains(searchTerm))
+            );
+        }
+
+        if (filter.AttendeeId.HasValue)
+        {
+            query = query.Where(g => g.Attendees.Any(a => a.PersonId == filter.AttendeeId.Value));
+        }
+
+        var totalCount = await query.CountAsync();
+
+        var items = await query
             .OrderByDescending(g => g.Date)
+            .Skip((filter.Page - 1) * filter.PageSize)
+            .Take(filter.PageSize)
             .ToListAsync();
+
+        return (items, totalCount);
     }
 
     public async Task<Gig?> GetByIdAsync(GigId id)

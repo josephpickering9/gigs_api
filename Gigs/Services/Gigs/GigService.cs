@@ -10,10 +10,16 @@ namespace Gigs.Services;
 
 public class GigService(IGigRepository repository, Database db, IAiEnrichmentService aiService) : IGigService
 {
-    public async Task<List<GetGigResponse>> GetAllAsync(GetGigsFilter filter)
+    public async Task<PaginatedResponse<GetGigResponse>> GetAllAsync(GetGigsFilter filter)
     {
-        var gigs = await repository.GetAllAsync(filter);
-        return gigs.Select(MapToDto).ToList();
+        var (gigs, totalCount) = await repository.GetAllAsync(filter);
+        return new PaginatedResponse<GetGigResponse>
+        {
+            Items = gigs.Select(MapToDto).ToList(),
+            Page = filter.Page,
+            PageSize = filter.PageSize,
+            TotalCount = totalCount
+        };
     }
 
     public async Task<GetGigResponse> GetByIdAsync(GigId id)
