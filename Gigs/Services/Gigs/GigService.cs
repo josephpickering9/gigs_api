@@ -15,13 +15,13 @@ public class GigService(IGigRepository repository) : IGigService
     // I'll stick to what's necessary.
     // Actually, looking at the requirements, to "add/update... relating elements", we need to handle acts.
 
-    public async Task<List<GigDto>> GetAllAsync()
+    public async Task<List<GetGigResponse>> GetAllAsync()
     {
         var gigs = await repository.GetAllAsync();
         return gigs.Select(MapToDto).ToList();
     }
 
-    public async Task<GigDto> GetByIdAsync(GigId id)
+    public async Task<GetGigResponse> GetByIdAsync(GigId id)
     {
         var gig = await repository.GetByIdAsync(id);
         if (gig == null)
@@ -31,7 +31,7 @@ public class GigService(IGigRepository repository) : IGigService
         return MapToDto(gig);
     }
 
-    public async Task<GigDto> CreateAsync(UpsertGigRequest request)
+    public async Task<GetGigResponse> CreateAsync(UpsertGigRequest request)
     {
         var gig = new Gig
         {
@@ -63,7 +63,7 @@ public class GigService(IGigRepository repository) : IGigService
         return MapToDto(createdGig!);
     }
 
-    public async Task<GigDto> UpdateAsync(GigId id, UpsertGigRequest request)
+    public async Task<GetGigResponse> UpdateAsync(GigId id, UpsertGigRequest request)
     {
         var gig = await repository.GetByIdAsync(id);
         if (gig == null)
@@ -110,9 +110,9 @@ public class GigService(IGigRepository repository) : IGigService
         await repository.DeleteAsync(id);
     }
 
-    private static GigDto MapToDto(Gig gig)
+    private static GetGigResponse MapToDto(Gig gig)
     {
-        return new GigDto
+        return new GetGigResponse
         {
             Id = gig.Id,
             VenueId = gig.VenueId,
