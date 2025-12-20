@@ -3,18 +3,48 @@ using Gigs.Exceptions;
 using Gigs.Models;
 using Gigs.Services;
 using Gigs.Types;
+using Gigs.DTOs;
 
 namespace Gigs.Repositories;
 
 public class GigRepository(Database database) : IGigRepository
 {
-    public async Task<List<Gig>> GetAllAsync()
+    public async Task<List<Gig>> GetAllAsync(GetGigsFilter filter)
     {
-        return await database.Gig
+        var query = database.Gig
             .Include(g => g.Venue)
             .Include(g => g.Acts).ThenInclude(ga => ga.Artist)
-            .Include(g => g.Attendees) // Assuming we might want count or list later
-            .AsNoTracking() // Read-only for list
+            .Include(g => g.Attendees)
+            .AsNoTracking()
+            .AsQueryable();
+
+        if (filter.VenueId.HasValue)
+        {
+            query = query.Where(g => g.VenueId == filter.VenueId.Value);
+        }
+
+        if (!string.IsNullOrWhiteSpace(filter.City))
+        {
+            query = query.Where(g => g.Venue != null && g.Venue.City.ToLower().Contains(filter.City.ToLower()));
+        }
+
+        if (filter.FromDate.HasValue)
+        {
+            query = query.Where(g => g.Date >= filter.FromDate.Value);
+        }
+
+        if (filter.ToDate.HasValue)
+        {
+            query = query.Where(g => g.Date <= filter.ToDate.Value);
+        }
+
+        if (filter.ArtistId.HasValue)
+        {
+            query = query.Where(g => g.Acts.Any(a => a.ArtistId == filter.ArtistId.Value));
+        }
+
+        return await query
+            .OrderByDescending(g => g.Date)
             .ToListAsync();
     }
 

@@ -25,10 +25,16 @@ builder.Services.AddHttpClient();
 
 // Repositories
 builder.Services.AddScoped<Gigs.Repositories.IGigRepository, Gigs.Repositories.GigRepository>();
+builder.Services.AddScoped<Gigs.Repositories.IArtistRepository, Gigs.Repositories.ArtistRepository>();
+builder.Services.AddScoped<Gigs.Repositories.IVenueRepository, Gigs.Repositories.VenueRepository>();
 
 // Services
 builder.Services.AddScoped<IGigService, GigService>();
+builder.Services.AddScoped<IArtistService, ArtistService>();
+builder.Services.AddScoped<IVenueService, VenueService>();
 builder.Services.AddScoped<ICsvImportService, CsvImportService>();
+builder.Services.AddScoped<Gigs.Services.AI.IAiEnrichmentService, Gigs.Services.AI.AiEnrichmentService>();
+
 
 
 builder.Services.AddEndpointsApiExplorer();

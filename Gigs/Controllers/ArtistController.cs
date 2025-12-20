@@ -1,0 +1,32 @@
+using Microsoft.AspNetCore.Mvc;
+using Gigs.Services;
+using Gigs.DTOs;
+using Gigs.Types;
+
+namespace Gigs.Controllers;
+
+[ApiController]
+[Route("api/v1/[controller]s")]
+public class ArtistController(IArtistService artistService) : ControllerBase
+{
+    [HttpGet]
+    public async Task<ActionResult<List<GetArtistResponse>>> GetAll()
+    {
+        var artists = await artistService.GetAllAsync();
+        return Ok(artists);
+    }
+
+    [HttpPost("{id}/enrich")]
+    public async Task<ActionResult<GetArtistResponse>> EnrichArtist(ArtistId id)
+    {
+        try
+        {
+            var artist = await artistService.EnrichArtistAsync(id);
+            return Ok(artist);
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(ex.Message);
+        }
+    }
+}
