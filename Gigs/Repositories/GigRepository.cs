@@ -53,6 +53,7 @@ public class GigRepository(Database database) : IGigRepository
         return await database.Gig
             .Include(g => g.Venue)
             .Include(g => g.Acts).ThenInclude(ga => ga.Artist)
+            .Include(g => g.Acts).ThenInclude(ga => ga.Songs).ThenInclude(s => s.Song)
             .Include(g => g.Attendees)
             .FirstOrDefaultAsync(g => g.Id == id);
     }
