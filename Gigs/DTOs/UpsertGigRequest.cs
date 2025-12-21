@@ -12,6 +12,9 @@ public class UpsertGigRequest
     
     public string? VenueCity { get; set; }
 
+    public FestivalId? FestivalId { get; set; }
+    public string? FestivalName { get; set; }
+
     [Required]
     public DateOnly Date { get; set; }
 

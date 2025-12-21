@@ -35,10 +35,12 @@ public class GigService(IGigRepository repository, Database db, IAiEnrichmentSer
     public async Task<GetGigResponse> CreateAsync(UpsertGigRequest request)
     {
         var venueId = await GetOrCreateVenue(request.VenueId, request.VenueName, request.VenueCity);
+        var festivalId = await GetOrCreateFestival(request.FestivalId, request.FestivalName);
         
         var gig = new Gig
         {
             VenueId = venueId,
+            FestivalId = festivalId,
             Date = request.Date,
             TicketCost = request.TicketCost,
             TicketType = request.TicketType,
@@ -79,7 +81,9 @@ public class GigService(IGigRepository repository, Database db, IAiEnrichmentSer
         }
 
 
+
         gig.VenueId = await GetOrCreateVenue(request.VenueId, request.VenueName, request.VenueCity);
+        gig.FestivalId = await GetOrCreateFestival(request.FestivalId, request.FestivalName);
         gig.Date = request.Date;
         gig.TicketCost = request.TicketCost;
         gig.TicketType = request.TicketType;
@@ -281,6 +285,8 @@ public class GigService(IGigRepository repository, Database db, IAiEnrichmentSer
             Id = gig.Id,
             VenueId = gig.VenueId,
             VenueName = gig.Venue?.Name ?? "Unknown Venue",
+            FestivalId = gig.FestivalId,
+            FestivalName = gig.Festival?.Name,
             Date = gig.Date,
             TicketCost = gig.TicketCost,
             TicketType = gig.TicketType,
@@ -360,5 +366,28 @@ public class GigService(IGigRepository repository, Database db, IAiEnrichmentSer
         }
 
         return venue.Id;
+    }
+
+    private async Task<FestivalId?> GetOrCreateFestival(FestivalId? festivalId, string? festivalName)
+    {
+        if (festivalId.HasValue) return festivalId.Value;
+        
+        if (string.IsNullOrWhiteSpace(festivalName)) return null;
+
+        var festival = db.Festival.Local.FirstOrDefault(f => f.Name.Equals(festivalName, StringComparison.CurrentCultureIgnoreCase))
+                       ?? await db.Festival.FirstOrDefaultAsync(f => f.Name.ToLower() == festivalName.ToLower());
+                       
+        if (festival == null)
+        {
+            festival = new Festival
+            {
+                Name = festivalName,
+                Slug = Guid.NewGuid().ToString()
+            };
+            db.Festival.Add(festival);
+            await db.SaveChangesAsync();
+        }
+        
+        return festival.Id;
     }
 }

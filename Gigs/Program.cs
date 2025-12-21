@@ -34,6 +34,7 @@ builder.Services.AddScoped<Gigs.Repositories.IDashboardRepository, Gigs.Reposito
 builder.Services.AddScoped<IGigService, GigService>();
 builder.Services.AddScoped<IArtistService, ArtistService>();
 builder.Services.AddScoped<IVenueService, VenueService>();
+builder.Services.AddScoped<IFestivalService, FestivalService>();
 builder.Services.AddScoped<ICsvImportService, CsvImportService>();
 builder.Services.AddScoped<IDashboardService, DashboardService>();
 builder.Services.AddScoped<Gigs.Services.AI.IAiEnrichmentService, Gigs.Services.AI.AiEnrichmentService>();
@@ -56,6 +57,7 @@ builder.Services.AddSwaggerGen(c =>
     c.MapType<PersonId>(() => new OpenApiSchema { Type = "string", Format = "uuid" });
     c.MapType<GigArtistId>(() => new OpenApiSchema { Type = "string", Format = "uuid" });
     c.MapType<SongId>(() => new OpenApiSchema { Type = "string", Format = "uuid" });
+    c.MapType<FestivalId>(() => new OpenApiSchema { Type = "string", Format = "uuid" });
 
 });
 builder.Services.AddControllers()

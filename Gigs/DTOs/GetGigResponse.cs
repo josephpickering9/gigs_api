@@ -8,6 +8,8 @@ public class GetGigResponse
     public GigId Id { get; set; }
     public VenueId VenueId { get; set; }
     public string VenueName { get; set; } = string.Empty;
+    public FestivalId? FestivalId { get; set; }
+    public string? FestivalName { get; set; }
     public DateOnly Date { get; set; }
     public decimal? TicketCost { get; set; }
     public TicketType TicketType { get; set; }

@@ -10,6 +10,7 @@ public class Database(DbContextOptions<Database> options) : DbContext(options)
     public DbSet<Gig> Gig { get; set; }
     public DbSet<Artist> Artist { get; set; }
     public DbSet<Venue> Venue { get; set; }
+    public DbSet<Festival> Festival { get; set; }
     public DbSet<Person> Person { get; set; }
     public DbSet<Song> Song { get; set; }
     public DbSet<GigArtist> GigArtist { get; set; }
@@ -23,6 +24,8 @@ public class Database(DbContextOptions<Database> options) : DbContext(options)
             .Property(e => e.Id).HasGuidIdConversion().ValueGeneratedOnAdd();
         modelBuilder.Entity<Gig>()
             .Property(e => e.VenueId).HasGuidIdConversion();
+        modelBuilder.Entity<Gig>()
+            .Property(e => e.FestivalId).HasNullableGuidIdConversion();
         modelBuilder.Entity<Gig>()
             .Property(e => e.TicketType)
             .HasConversion(
@@ -40,6 +43,11 @@ public class Database(DbContextOptions<Database> options) : DbContext(options)
             .Property(e => e.Id).HasGuidIdConversion().ValueGeneratedOnAdd();
         modelBuilder.Entity<Venue>().HasIndex(b => b.Slug).IsUnique();
 
+        // Festival
+        modelBuilder.Entity<Festival>()
+            .Property(e => e.Id).HasGuidIdConversion().ValueGeneratedOnAdd();
+        modelBuilder.Entity<Festival>().HasIndex(b => b.Slug).IsUnique();
+        
         // Person
         modelBuilder.Entity<Person>()
             .Property(e => e.Id).HasGuidIdConversion().ValueGeneratedOnAdd();

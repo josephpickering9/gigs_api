@@ -13,6 +13,8 @@ public class GigRepository(Database database) : IGigRepository
     {
         var query = database.Gig
             .Include(g => g.Venue)
+            .Include(g => g.Festival)
+            .Include(g => g.Acts).ThenInclude(ga => ga.Artist)
             .Include(g => g.Acts).ThenInclude(ga => ga.Artist)
             .Include(g => g.Attendees)
             .AsNoTracking()
@@ -21,6 +23,11 @@ public class GigRepository(Database database) : IGigRepository
         if (filter.VenueId.HasValue)
         {
             query = query.Where(g => g.VenueId == filter.VenueId.Value);
+        }
+
+        if (filter.FestivalId.HasValue)
+        {
+            query = query.Where(g => g.FestivalId == filter.FestivalId.Value);
         }
 
         if (!string.IsNullOrWhiteSpace(filter.City))
@@ -72,6 +79,8 @@ public class GigRepository(Database database) : IGigRepository
     {
         return await database.Gig
             .Include(g => g.Venue)
+            .Include(g => g.Festival)
+            .Include(g => g.Acts).ThenInclude(ga => ga.Artist)
             .Include(g => g.Acts).ThenInclude(ga => ga.Artist)
             .Include(g => g.Acts).ThenInclude(ga => ga.Songs).ThenInclude(s => s.Song)
             .Include(g => g.Attendees)
