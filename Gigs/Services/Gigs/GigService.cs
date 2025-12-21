@@ -34,9 +34,11 @@ public class GigService(IGigRepository repository, Database db, IAiEnrichmentSer
 
     public async Task<GetGigResponse> CreateAsync(UpsertGigRequest request)
     {
+        var venueId = await GetOrCreateVenue(request.VenueId, request.VenueName, request.VenueCity);
+        
         var gig = new Gig
         {
-            VenueId = request.VenueId,
+            VenueId = venueId,
             Date = request.Date,
             TicketCost = request.TicketCost,
             TicketType = request.TicketType,
@@ -76,7 +78,8 @@ public class GigService(IGigRepository repository, Database db, IAiEnrichmentSer
             throw new NotFoundException($"Gig with ID {id} not found.");
         }
 
-        gig.VenueId = request.VenueId;
+
+        gig.VenueId = await GetOrCreateVenue(request.VenueId, request.VenueName, request.VenueCity);
         gig.Date = request.Date;
         gig.TicketCost = request.TicketCost;
         gig.TicketType = request.TicketType;
@@ -327,5 +330,35 @@ public class GigService(IGigRepository repository, Database db, IAiEnrichmentSer
                 Order = order++
             });
         }
+    }
+
+    private async Task<VenueId> GetOrCreateVenue(VenueId? venueId, string? venueName, string? venueCity)
+    {
+        if (venueId.HasValue)
+        {
+            return venueId.Value;
+        }
+
+        if (string.IsNullOrWhiteSpace(venueName) || string.IsNullOrWhiteSpace(venueCity))
+        {
+            throw new ArgumentException("Either VenueId or both VenueName and VenueCity must be provided.");
+        }
+
+        var venue = db.Venue.Local.FirstOrDefault(v => v.Name.Equals(venueName, StringComparison.CurrentCultureIgnoreCase) && v.City.Equals(venueCity, StringComparison.CurrentCultureIgnoreCase))
+                    ?? await db.Venue.FirstOrDefaultAsync(v => v.Name.ToLower() == venueName.ToLower() && v.City.ToLower() == venueCity.ToLower());
+
+        if (venue == null)
+        {
+            venue = new Venue
+            {
+                Name = venueName,
+                City = venueCity,
+                Slug = Guid.NewGuid().ToString()
+            };
+            db.Venue.Add(venue);
+            await db.SaveChangesAsync();
+        }
+
+        return venue.Id;
     }
 }

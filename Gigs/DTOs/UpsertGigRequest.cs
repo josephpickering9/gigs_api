@@ -6,8 +6,11 @@ namespace Gigs.DTOs;
 
 public class UpsertGigRequest
 {
-    [Required]
-    public VenueId VenueId { get; set; }
+    public VenueId? VenueId { get; set; }
+    
+    public string? VenueName { get; set; }
+    
+    public string? VenueCity { get; set; }
 
     [Required]
     public DateOnly Date { get; set; }
