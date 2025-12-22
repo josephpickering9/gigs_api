@@ -40,6 +40,7 @@ public class FestivalService(Database db, IGigService gigService) : IFestivalSer
         var festival = new Festival
         {
             Name = request.Name,
+            Year = request.Year,
             ImageUrl = request.ImageUrl,
             Slug = Guid.NewGuid().ToString() // Simple slug for now
         };
@@ -59,6 +60,7 @@ public class FestivalService(Database db, IGigService gigService) : IFestivalSer
         }
         
         festival.Name = request.Name;
+        festival.Year = request.Year;
         festival.ImageUrl = request.ImageUrl;
         
         await db.SaveChangesAsync();
@@ -81,6 +83,7 @@ public class FestivalService(Database db, IGigService gigService) : IFestivalSer
         {
             Id = festival.Id,
             Name = festival.Name,
+            Year = festival.Year,
             Slug = festival.Slug,
             ImageUrl = festival.ImageUrl
         };
