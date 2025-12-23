@@ -8,7 +8,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Gigs.Services;
 
-public class GigService(IGigRepository repository, Database db, IAiEnrichmentService aiService) : IGigService
+public class GigService(IGigRepository repository, Database db, IFestivalRepository festivalRepository, IAiEnrichmentService aiService) : IGigService
 {
     public async Task<PaginatedResponse<GetGigResponse>> GetAllAsync(GetGigsFilter filter)
     {
@@ -79,8 +79,6 @@ public class GigService(IGigRepository repository, Database db, IAiEnrichmentSer
         {
             throw new NotFoundException($"Gig with ID {id} not found.");
         }
-
-
 
         gig.VenueId = await GetOrCreateVenue(request.VenueId, request.VenueName, request.VenueCity);
         gig.FestivalId = await GetOrCreateFestival(request.FestivalId, request.FestivalName);
@@ -374,8 +372,7 @@ public class GigService(IGigRepository repository, Database db, IAiEnrichmentSer
         
         if (string.IsNullOrWhiteSpace(festivalName)) return null;
 
-        var festival = db.Festival.Local.FirstOrDefault(f => f.Name.Equals(festivalName, StringComparison.CurrentCultureIgnoreCase))
-                       ?? await db.Festival.FirstOrDefaultAsync(f => f.Name.ToLower() == festivalName.ToLower());
+        var festival = await festivalRepository.FindByNameAsync(festivalName);
                        
         if (festival == null)
         {
@@ -384,8 +381,7 @@ public class GigService(IGigRepository repository, Database db, IAiEnrichmentSer
                 Name = festivalName,
                 Slug = Guid.NewGuid().ToString()
             };
-            db.Festival.Add(festival);
-            await db.SaveChangesAsync();
+            await festivalRepository.AddAsync(festival);
         }
         
         return festival.Id;
