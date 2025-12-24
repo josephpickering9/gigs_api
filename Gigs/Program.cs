@@ -45,7 +45,7 @@ builder.Services.AddScoped<Gigs.Services.External.ISpotifyService, Gigs.Services
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
-    c.SwaggerDoc("v1", new OpenApiInfo { Title = "Gigs API", Version = "v1" });
+    c.SwaggerDoc("v1", new OpenApiInfo { Title = "Gigs API", Version = "" });
 
     c.OperationFilter<SwaggerFileOperationFilter>();
     c.SchemaFilter<EnumDescriptionSchemaFilter>();
