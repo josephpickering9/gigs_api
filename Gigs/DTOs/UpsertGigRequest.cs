@@ -26,4 +26,6 @@ public class UpsertGigRequest
     public string? ImageUrl { get; set; }
     
     public List<GigArtistRequest> Acts { get; set; } = [];
+    
+    public List<PersonId> Attendees { get; set; } = [];
 }

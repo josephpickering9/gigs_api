@@ -16,7 +16,7 @@ public class GigRepository(Database database) : IGigRepository
             .Include(g => g.Festival)
             .Include(g => g.Acts).ThenInclude(ga => ga.Artist)
             .Include(g => g.Acts).ThenInclude(ga => ga.Artist)
-            .Include(g => g.Attendees)
+            .Include(g => g.Attendees).ThenInclude(a => a.Person)
             .AsNoTracking()
             .AsQueryable();
 
@@ -83,7 +83,7 @@ public class GigRepository(Database database) : IGigRepository
             .Include(g => g.Acts).ThenInclude(ga => ga.Artist)
             .Include(g => g.Acts).ThenInclude(ga => ga.Artist)
             .Include(g => g.Acts).ThenInclude(ga => ga.Songs).ThenInclude(s => s.Song)
-            .Include(g => g.Attendees)
+            .Include(g => g.Attendees).ThenInclude(a => a.Person)
             .FirstOrDefaultAsync(g => g.Id == id);
     }
 

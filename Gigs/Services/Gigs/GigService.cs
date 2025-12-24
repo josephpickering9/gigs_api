@@ -66,6 +66,17 @@ public class GigService(IGigRepository repository, Database db, IFestivalReposit
             }
         }
 
+        if (request.Attendees.Any())
+        {
+            foreach (var personId in request.Attendees)
+            {
+                gig.Attendees.Add(new GigAttendee
+                {
+                    PersonId = personId
+                });
+            }
+        }
+
         await repository.AddAsync(gig);
 
         var createdGig = await repository.GetByIdAsync(gig.Id);
@@ -116,6 +127,26 @@ public class GigService(IGigRepository repository, Database db, IFestivalReposit
                 };
                 await ProcessSetlist(newAct, actRequest.Setlist, actRequest.ArtistId);
                 gig.Acts.Add(newAct);
+            }
+        }
+
+        var requestedAttendeeIds = request.Attendees.ToHashSet();
+        var attendeesToRemove = gig.Attendees.Where(a => !requestedAttendeeIds.Contains(a.PersonId)).ToList();
+        foreach (var attendee in attendeesToRemove)
+        {
+            gig.Attendees.Remove(attendee);
+        }
+
+        foreach (var personId in request.Attendees)
+        {
+            var existingAttendee = gig.Attendees.FirstOrDefault(a => a.PersonId == personId);
+            if (existingAttendee == null)
+            {
+                gig.Attendees.Add(new GigAttendee
+                {
+                    GigId = gig.Id,
+                    PersonId = personId
+                });
             }
         }
 
@@ -297,7 +328,12 @@ public class GigService(IGigRepository repository, Database db, IFestivalReposit
                 IsHeadliner = a.IsHeadliner,
                 ImageUrl = a.Artist?.ImageUrl,
                 Setlist = a.Songs.OrderBy(s => s.Order).Select(s => s.Song.Title).ToList()
-            }).OrderByDescending(a => a.IsHeadliner).ThenBy(a => a.Name).ToList()
+            }).OrderByDescending(a => a.IsHeadliner).ThenBy(a => a.Name).ToList(),
+            Attendees = gig.Attendees.Select(a => new GetGigAttendeeResponse
+            {
+                PersonId = a.PersonId,
+                PersonName = a.Person?.Name ?? "Unknown Person"
+            }).ToList()
         };
     }
 

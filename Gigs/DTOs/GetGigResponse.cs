@@ -16,4 +16,5 @@ public class GetGigResponse
     public string? ImageUrl { get; set; }
     public string Slug { get; set; } = string.Empty;
     public List<GetGigArtistResponse> Acts { get; set; } = [];
+    public List<GetGigAttendeeResponse> Attendees { get; set; } = [];
 }
