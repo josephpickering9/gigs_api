@@ -66,12 +66,9 @@ public class SpotifyService
             }
 
             var artist = searchResponse.Artists.Items.First();
-            
-            // Return existing high-res image
             var image = artist.Images.OrderByDescending(i => i.Width).FirstOrDefault();
             
-            if (image?.Url == null)
-                 return Result.NotFound<string>("No image found for artist.");
+            if (image?.Url == null) return Result.NotFound<string>("No image found for artist.");
 
             return image.Url.ToSuccess();
         }

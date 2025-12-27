@@ -41,7 +41,7 @@ public class CsvImportService(ArtistRepository artistRepository, GigService gigS
                 catch (Exception ex)
                 {
                     Console.WriteLine($"Error processing record {record.Headliner} @ {record.Venue}: {ex.Message}");
-                    // throw; // Optionally suppress individual errors to allow partial import
+
                 }
             }
 
@@ -62,7 +62,7 @@ public class CsvImportService(ArtistRepository artistRepository, GigService gigS
 
         var actsRequest = new List<GigArtistRequest>();
 
-        // 1. Headliner
+
         var headlinerId = await artistRepository.GetOrCreateAsync(record.Headliner!);
         actsRequest.Add(new GigArtistRequest
         {
@@ -72,7 +72,7 @@ public class CsvImportService(ArtistRepository artistRepository, GigService gigS
             SetlistUrl = record.SetlistUrl
         });
 
-        // 2. Support Acts
+
         if (!string.IsNullOrWhiteSpace(record.SupportActs))
         {
             var supports = SplitWithAmpersandKeep(record.SupportActs);
@@ -89,7 +89,7 @@ public class CsvImportService(ArtistRepository artistRepository, GigService gigS
             }
         }
 
-        // 3. Attendees
+
         var attendees = new List<string>();
         if (!string.IsNullOrWhiteSpace(record.WentWith))
         {
@@ -103,7 +103,8 @@ public class CsvImportService(ArtistRepository artistRepository, GigService gigS
             Date = record.Date!.Value,
             TicketCost = ParseCurrency(record.TicketCost),
             TicketType = ParseTicketType(record.TicketType),
-            ImageUrl = null, // CSV doesn't seem to have image URL
+            ImageUrl = null,
+
             Acts = actsRequest,
             Attendees = attendees
         };

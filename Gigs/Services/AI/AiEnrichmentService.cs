@@ -128,9 +128,9 @@ Output strictly in JSON format:
                 return Result.Fail<AiEnrichmentResult>("Empty response from AI.");
             }
 
-            // Clean up: find first '{' and last '}'
             var firstBrace = responseText.IndexOf('{');
             var lastBrace = responseText.LastIndexOf('}');
+
 
             if (firstBrace >= 0 && lastBrace > firstBrace)
             {
@@ -138,8 +138,8 @@ Output strictly in JSON format:
             }
             else
             {
-                // Fallback cleanup if braces not found correctly (unlikely for valid JSON)
                 responseText = responseText.Replace("```json", "").Replace("```", "").Trim();
+
             }
 
             var options = new JsonSerializerOptions

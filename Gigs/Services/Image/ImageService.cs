@@ -65,7 +65,7 @@ public class ImageService
 
     public async Task<string> SaveImageAsync(string fileName, byte[] data)
     {
-        // Attempt optimization
+
         var imageToSave = data;
         
         if (!string.IsNullOrWhiteSpace(_tinifyApiKey))

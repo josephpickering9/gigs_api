@@ -43,7 +43,7 @@ public class GigService(
     {
         var venueId = await venueRepository.GetOrCreateAsync(request.VenueName!, request.VenueCity!);
 
-        // Check for existing gig (Upsert logic)
+
         var headliner = request.Acts.FirstOrDefault(a => a.IsHeadliner);
         if (headliner != null)
         {
@@ -114,14 +114,15 @@ public class GigService(
     {
         var requestedArtistIds = requestedActs.Select(a => a.ArtistId).ToHashSet();
         
-        // Remove acts not in request
+
         var actsToRemove = gig.Acts.Where(a => !requestedArtistIds.Contains(a.ArtistId)).ToList();
         foreach (var act in actsToRemove)
         {
             gig.Acts.Remove(act);
         }
 
-        // Add or Update acts
+
+
         foreach (var actRequest in requestedActs)
         {
             var existingAct = gig.Acts.FirstOrDefault(a => a.ArtistId == actRequest.ArtistId);
@@ -159,14 +160,16 @@ public class GigService(
 
         var requestedAttendeeIds = requestedPersonIds.ToHashSet();
         
-        // Remove attendees not in request
+
+
         var attendeesToRemove = gig.Attendees.Where(a => !requestedAttendeeIds.Contains(a.PersonId)).ToList();
         foreach (var attendee in attendeesToRemove)
         {
             gig.Attendees.Remove(attendee);
         }
 
-        // Add new attendees
+
+
         foreach (var personId in requestedPersonIds)
         {
             var existingAttendee = gig.Attendees.FirstOrDefault(a => a.PersonId == personId);
@@ -200,7 +203,6 @@ public class GigService(
         {
             foreach (var actName in enrichment.SupportActs)
             {
-                // Skip if already exists
                 if (existingArtistNames.Contains(actName.ToLower()))
                     continue;
 
@@ -223,7 +225,6 @@ public class GigService(
             var headliner = gig.Acts.FirstOrDefault(a => a.IsHeadliner);
             if (headliner != null)
             {
-                // Get existing song titles for this headliner
                 var existingSongTitles = headliner.Songs
                     .Where(s => s.Song != null)
                     .Select(s => s.Song.Title.ToLower())
@@ -233,7 +234,6 @@ public class GigService(
 
                 foreach (var songTitle in enrichment.Setlist)
                 {
-                    // Skip if already exists
                     if (existingSongTitles.Contains(songTitle.ToLower()))
                     {
                         order++;
@@ -268,8 +268,6 @@ public class GigService(
         {
             try
             {
-                // We ignore the result here for now as this is a background-ish task
-                // In a real scenario we might want to aggregate failures
                 await EnrichGigAsync(gig.Id);
                 count++;
             }
