@@ -70,3 +70,21 @@ public enum ErrorType
     Unauthorized,
     Forbidden
 }
+
+public static class Result
+{
+    public static Result<T> Ok<T>(T data) => new Success<T>(data);
+    public static Result<T> Fail<T>(string message) => new Failure<T>(message);
+    public static Result<T> NotFound<T>(string message = "Not found") => new NotFoundFailure<T>(message);
+    public static Result<T> Conflict<T>(string message) => new ConflictFailure<T>(message);
+    public static Result<T> Unauthorized<T>(string message = "Unauthorized") => new UnauthorizedFailure<T>(message);
+    public static Result<T> Forbidden<T>(string message = "Forbidden") => new ForbiddenFailure<T>(message);
+}
+
+public static class ResultHelpers
+{
+    public static Result<T> ToSuccess<T>(this T data) => new Success<T>(data);
+    public static Result<T> ToFailure<T>(this string message) => new Failure<T>(message);
+    public static Result<T> ToNotFound<T>(this string message) => new NotFoundFailure<T>(message);
+    public static Result<T> ToConflict<T>(this string message) => new ConflictFailure<T>(message);
+}

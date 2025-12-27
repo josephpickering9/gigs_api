@@ -11,39 +11,46 @@ namespace Gigs.Services;
 
 public class CsvImportService(ArtistRepository artistRepository, GigService gigService)
 {
-    public async Task<int> ImportGigsAsync(Stream csvStream)
+    public async Task<Result<int>> ImportGigsAsync(Stream csvStream)
     {
-        using var reader = new StreamReader(csvStream);
-        using var csv = new CsvReader(reader, new CsvConfiguration(CultureInfo.InvariantCulture)
+        try
         {
-            HasHeaderRecord = true,
-            HeaderValidated = null,
-            MissingFieldFound = null
-        });
-
-        var records = csv.GetRecords<CsvGigRecord>();
-        var count = 0;
-
-        foreach (var record in records)
-        {
-            if (record.Date == null || string.IsNullOrWhiteSpace(record.Headliner) || string.IsNullOrWhiteSpace(record.Venue))
+            using var reader = new StreamReader(csvStream);
+            using var csv = new CsvReader(reader, new CsvConfiguration(CultureInfo.InvariantCulture)
             {
-                continue;
+                HasHeaderRecord = true,
+                HeaderValidated = null,
+                MissingFieldFound = null
+            });
+
+            var records = csv.GetRecords<CsvGigRecord>();
+            var count = 0;
+
+            foreach (var record in records)
+            {
+                if (record.Date == null || string.IsNullOrWhiteSpace(record.Headliner) || string.IsNullOrWhiteSpace(record.Venue))
+                {
+                    continue;
+                }
+
+                try
+                {
+                    await ProcessRecordAsync(record);
+                    count++;
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Error processing record {record.Headliner} @ {record.Venue}: {ex.Message}");
+                    // throw; // Optionally suppress individual errors to allow partial import
+                }
             }
 
-            try
-            {
-                await ProcessRecordAsync(record);
-                count++;
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error processing record {record.Headliner} @ {record.Venue}: {ex.Message}");
-                // throw; // Optionally suppress individual errors to allow partial import
-            }
+            return count.ToSuccess();
         }
-
-        return count;
+        catch (Exception ex)
+        {
+            return Result.Fail<int>($"Error importing gigs from CSV: {ex.Message}");
+        }
     }
 
     private async Task ProcessRecordAsync(CsvGigRecord record)

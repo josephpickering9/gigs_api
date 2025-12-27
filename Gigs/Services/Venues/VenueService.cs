@@ -13,23 +13,28 @@ public class VenueService(
     ImageService imageService,
     IHttpClientFactory httpClientFactory)
 {
-    public async Task<List<GetVenueResponse>> GetAllAsync()
+    public async Task<Result<List<GetVenueResponse>>> GetAllAsync()
     {
         var venues = await repository.GetAllAsync();
-        return venues.Select(MapToDto).ToList();
+        return venues.Select(MapToDto).ToList().ToSuccess();
     }
 
-    public async Task<GetVenueResponse> EnrichVenueAsync(VenueId id)
+    public async Task<Result<GetVenueResponse>> EnrichVenueAsync(VenueId id)
     {
         var venues = await repository.GetAllAsync();
-        var venue = venues.FirstOrDefault(v => v.Id == id) 
-                    ?? throw new KeyNotFoundException($"Venue with ID {id} not found.");
+        var venue = venues.FirstOrDefault(v => v.Id == id);
+                    
+        if (venue == null)
+        {
+            return Result.NotFound<GetVenueResponse>($"Venue with ID {id} not found.");
+        }
 
         // 1. Get Image URL from AI
-        var imageUrl = await aiEnrichmentService.EnrichVenueImage(venue.Name, venue.City);
+        var aiResult = await aiEnrichmentService.EnrichVenueImage(venue.Name, venue.City);
+        var imageUrl = aiResult.IsSuccess ? aiResult.Data : null;
 
         if (string.IsNullOrWhiteSpace(imageUrl))
-            return MapToDto(venue); // No image found, return as is
+            return MapToDto(venue).ToSuccess(); // No image found, return as is
 
         // 2. Download Image
         try 
@@ -54,10 +59,10 @@ public class VenueService(
             // Log error? For now just ignore and return original venue
         }
 
-        return MapToDto(venue);
+        return MapToDto(venue).ToSuccess();
     }
 
-    public async Task<int> EnrichAllVenuesAsync()
+    public async Task<Result<int>> EnrichAllVenuesAsync()
     {
         var venues = await repository.GetAllAsync();
         var missingDataVenues = venues.Where(v => string.IsNullOrWhiteSpace(v.ImageUrl)).ToList();
@@ -75,7 +80,7 @@ public class VenueService(
                 // Continue with next venue
             }
         }
-        return count;
+        return count.ToSuccess();
     }
 
     private static GetVenueResponse MapToDto(Venue venue)

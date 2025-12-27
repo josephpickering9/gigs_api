@@ -4,6 +4,7 @@ using Google.Cloud.AIPlatform.V1;
 using Google.Protobuf.WellKnownTypes;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using Gigs.Types;
 using Value = Google.Protobuf.WellKnownTypes.Value;
 
 namespace Gigs.Services.AI;
@@ -67,15 +68,10 @@ public class AiEnrichmentService
         _predictionServiceClient = builder.Build();
     }
 
-    public virtual async Task<AiEnrichmentResult> EnrichGig(Gig gig)
+    public virtual async Task<Result<AiEnrichmentResult>> EnrichGig(Gig gig)
     {
         var endpoint = EndpointName.FormatProjectLocationPublisherModel(_projectId, _location, _publisher, _model);
         
-        // ... (rest of method ignored for replacement match if I use correct target)
-        // Wait, I can't match partially easily without including body.
-        // Better to use multi_replace for signatures.
-
-
         var prompt = $@"
 You are a music historian helper.
 I have a gig with the following details:
@@ -106,25 +102,6 @@ Output strictly in JSON format:
             }
         };
 
-        var instance = new Value
-        {
-            StructValue = new Struct
-            {
-                Fields =
-                {
-                    // Structuring for Gemini API input via PredictionServiceClient can be tricky essentially wrapping the Content
-                    // However, for Gemini we typically use the GenerateContent methods if using the specialized Gemini client.
-                    // But with PredictionServiceClient, we send raw instances.
-                    // Let's stick effectively to the raw JSON approach or switch to `Google.Cloud.AIPlatform.V1.GenerativeModel` if available in this package version.
-                    // Actually, for simplicity and standard usage with `Google.Cloud.AIPlatform.V1`, we usually use `PredictionServiceClient` with the "generateContent" custom method or similar.
-                    // A better approach for Gemini specifically in recent SDKs is effectively ensuring we send the right payload.
-                    // BUT, `Google.Cloud.AIPlatform.V1` has a `GenerateContentRequest`.
-                }
-            }
-        };
-
-        // Wait, strictly speaking, for Gemini models on Vertex AI, we should use the `PredictionServiceClient.GenerateContentAsync` method which takes a `GenerateContentRequest`.
-
         var generateContentRequest = new GenerateContentRequest
         {
             Model = endpoint,
@@ -148,7 +125,7 @@ Output strictly in JSON format:
             if (string.IsNullOrEmpty(responseText))
             {
                 _logger.LogWarning("Empty response from AI for Gig {GigId}", gig.Id);
-                return new AiEnrichmentResult();
+                return Result.Fail<AiEnrichmentResult>("Empty response from AI.");
             }
 
             // Clean up: find first '{' and last '}'
@@ -173,26 +150,26 @@ Output strictly in JSON format:
             };
 
             var result = JsonSerializer.Deserialize<AiEnrichmentResult>(responseText, options);
-            return result ?? new AiEnrichmentResult();
+            return (result ?? new AiEnrichmentResult()).ToSuccess();
         }
         catch (Grpc.Core.RpcException ex) when (ex.Status.StatusCode == Grpc.Core.StatusCode.Unauthenticated || ex.Message.Contains("invalid_grant"))
         {
             _logger.LogError(ex, "Vertex AI Authentication failed. Please run 'gcloud auth application-default login' to refresh your credentials.");
-            throw new Exception("Vertex AI Authentication failed. Please check server logs for details.", ex);
+             return Result.Fail<AiEnrichmentResult>("Vertex AI Authentication failed.");
         }
         catch (JsonException ex)
         {
              _logger.LogError(ex, "Failed to parse AI response. Raw Text: {RawResponse}", responseText);
-             throw new Exception($"Failed to parse AI response. Raw Text: {responseText}", ex);
+              return Result.Fail<AiEnrichmentResult>($"Failed to parse AI response: {ex.Message}");
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error enriching gig {GigId}", gig.Id);
-            throw; // Or return empty/partial result depending on requirement
+            return Result.Fail<AiEnrichmentResult>($"Error enriching gig: {ex.Message}");
         }
     }
 
-    public virtual async Task<string?> EnrichArtistImage(string artistName)
+    public virtual async Task<Result<string>> EnrichArtistImage(string artistName)
     {
         var endpoint = EndpointName.FormatProjectLocationPublisherModel(_projectId, _location, _publisher, _model);
 
@@ -233,18 +210,18 @@ If you absolutely cannot find one, return 'null'.
             var url = response.Candidates.FirstOrDefault()?.Content?.Parts.FirstOrDefault()?.Text?.Trim();
 
             if (string.IsNullOrWhiteSpace(url) || url.Equals("null", StringComparison.OrdinalIgnoreCase))
-                return null;
+                return Result.NotFound<string>("Image not found.");
 
-            return url;
+            return url.ToSuccess();
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error fetching artist image for {ArtistName}", artistName);
-            return null;
+             return Result.Fail<string>($"Error fetching artist image: {ex.Message}");
         }
     }
 
-    public virtual async Task<string?> EnrichVenueImage(string venueName, string city)
+    public virtual async Task<Result<string>> EnrichVenueImage(string venueName, string city)
     {
         var endpoint = EndpointName.FormatProjectLocationPublisherModel(_projectId, _location, _publisher, _model);
 
@@ -285,14 +262,14 @@ If you absolutely cannot find one, return 'null'.
             var url = response.Candidates.FirstOrDefault()?.Content?.Parts.FirstOrDefault()?.Text?.Trim();
 
             if (string.IsNullOrWhiteSpace(url) || url.Equals("null", StringComparison.OrdinalIgnoreCase))
-                return null;
+                  return Result.NotFound<string>("Image not found.");
 
-            return url;
+            return url.ToSuccess();
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error fetching venue image for {VenueName} in {City}", venueName, city);
-            return null;
+              return Result.Fail<string>($"Error fetching venue image: {ex.Message}");
         }
     }
 }

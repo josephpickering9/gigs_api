@@ -44,11 +44,11 @@ public class SpotifyService
         }
     }
 
-    public async Task<string?> GetArtistImageAsync(string artistName)
+    public async Task<Result<string>> GetArtistImageAsync(string artistName)
     {
         await EnsureAuthenticated();
 
-        if (_spotify == null) return null;
+        if (_spotify == null) return Result.Fail<string>("Spotify authentication failed.");
 
         try
         {
@@ -62,19 +62,23 @@ public class SpotifyService
             if (searchResponse.Artists.Items == null || !searchResponse.Artists.Items.Any())
             {
                 _logger.LogInformation("No artist found on Spotify for '{ArtistName}'", artistName);
-                return null;
+                return Result.NotFound<string>($"Artist '{artistName}' not found on Spotify.");
             }
 
             var artist = searchResponse.Artists.Items.First();
             
             // Return existing high-res image
             var image = artist.Images.OrderByDescending(i => i.Width).FirstOrDefault();
-            return image?.Url;
+            
+            if (image?.Url == null)
+                 return Result.NotFound<string>("No image found for artist.");
+
+            return image.Url.ToSuccess();
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error searching Spotify for artist '{ArtistName}'", artistName);
-            return null;
+            return Result.Fail<string>($"Error searching Spotify: {ex.Message}");
         }
     }
 }

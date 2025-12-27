@@ -38,10 +38,12 @@ public class CsvImportServiceTests : IClassFixture<CustomWebApplicationFactory<P
         using var memoryStream = new MemoryStream(Encoding.UTF8.GetBytes(csvContent));
 
         // Act
-        var count = await csvService.ImportGigsAsync(memoryStream);
+        // Act
+        var result = await csvService.ImportGigsAsync(memoryStream);
 
         // Assert
-        Assert.Equal(2, count); // Processed 2 records
+        Assert.True(result.IsSuccess);
+        Assert.Equal(2, result.Data); // Processed 2 records
 
         var gigs = await db.Gig
             .Include(g => g.Venue)

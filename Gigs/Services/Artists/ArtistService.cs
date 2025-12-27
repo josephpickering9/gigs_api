@@ -15,29 +15,35 @@ public class ArtistService(
     IHttpClientFactory httpClientFactory,
     SpotifyService spotifyService)
 {
-    public async Task<List<GetArtistResponse>> GetAllAsync()
+    public async Task<Result<List<GetArtistResponse>>> GetAllAsync()
     {
         var artists = await repository.GetAllAsync();
-        return artists.Select(MapToDto).ToList();
+        return artists.Select(MapToDto).ToList().ToSuccess();
     }
 
-    public async Task<GetArtistResponse> EnrichArtistAsync(ArtistId id)
+    public async Task<Result<GetArtistResponse>> EnrichArtistAsync(ArtistId id)
     {
         var artists = await repository.GetAllAsync();
-        var artist = artists.FirstOrDefault(a => a.Id == id)
-                     ?? throw new KeyNotFoundException($"Artist with ID {id} not found.");
+        var artist = artists.FirstOrDefault(a => a.Id == id);
+                     
+        if (artist == null)
+        {
+            return Result.NotFound<GetArtistResponse>($"Artist with ID {id} not found.");
+        }
 
-        // 1. Get Image URL from Spotify
-        var imageUrl = await spotifyService.GetArtistImageAsync(artist.Name);
+        // 1. Get        // Try Spotify first
+        var spotifyResult = await spotifyService.GetArtistImageAsync(artist.Name);
+        var imageUrl = spotifyResult.IsSuccess ? spotifyResult.Data : null;
 
         // Fallback to AI if Spotify fails
         if (string.IsNullOrWhiteSpace(imageUrl))
         {
-             imageUrl = await aiEnrichmentService.EnrichArtistImage(artist.Name);
+             var aiResult = await aiEnrichmentService.EnrichArtistImage(artist.Name);
+             imageUrl = aiResult.IsSuccess ? aiResult.Data : null;
         }
 
         if (string.IsNullOrWhiteSpace(imageUrl))
-            return MapToDto(artist); // No image found, return as is
+            return MapToDto(artist).ToSuccess(); // No image found, return as is
 
         // 2. Download Image
         try
@@ -48,14 +54,14 @@ public class ArtistService(
             if (!response.IsSuccessStatusCode)
             {
                 // Log warning or return?
-                return MapToDto(artist);
+                return MapToDto(artist).ToSuccess();
             }
 
             var contentType = response.Content.Headers.ContentType?.MediaType;
             if (string.IsNullOrWhiteSpace(contentType) || !contentType.StartsWith("image/"))
             {
                 // Not an image (likely an HTML page or error page)
-                return MapToDto(artist);
+                return MapToDto(artist).ToSuccess();
             }
 
             var imageBytes = await response.Content.ReadAsByteArrayAsync();
@@ -89,10 +95,10 @@ public class ArtistService(
             // In a real app we'd log this.
         }
 
-        return MapToDto(artist);
+        return MapToDto(artist).ToSuccess();
     }
 
-    public async Task<int> EnrichAllArtistsAsync()
+    public async Task<Result<int>> EnrichAllArtistsAsync()
     {
         var artists = await repository.GetAllAsync();
         var missingDataArtists = artists.Where(a => string.IsNullOrWhiteSpace(a.ImageUrl)).ToList();
@@ -111,7 +117,7 @@ public class ArtistService(
             }
         }
 
-        return count;
+        return count.ToSuccess();
     }
 
     private static GetArtistResponse MapToDto(Artist artist)

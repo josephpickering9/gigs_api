@@ -16,29 +16,30 @@ public class GigService(
     SongRepository songRepository,
     AiEnrichmentService aiService)
 {
-    public async Task<PaginatedResponse<GetGigResponse>> GetAllAsync(GetGigsFilter filter)
+    public async Task<Result<PaginatedResponse<GetGigResponse>>> GetAllAsync(GetGigsFilter filter)
     {
         var (gigs, totalCount) = await repository.GetAllAsync(filter);
-        return new PaginatedResponse<GetGigResponse>
+        var response = new PaginatedResponse<GetGigResponse>
         {
             Items = gigs.Select(MapToDto).ToList(),
             Page = filter.Page,
             PageSize = filter.PageSize,
             TotalCount = totalCount
         };
+        return response.ToSuccess();
     }
 
-    public async Task<GetGigResponse> GetByIdAsync(GigId id)
+    public async Task<Result<GetGigResponse>> GetByIdAsync(GigId id)
     {
         var gig = await repository.GetByIdAsync(id);
         if (gig == null)
         {
-            throw new NotFoundException($"Gig with ID {id} not found.");
+            return Result.NotFound<GetGigResponse>($"Gig with ID {id} not found.");
         }
-        return MapToDto(gig);
+        return MapToDto(gig).ToSuccess();
     }
 
-    public async Task<GetGigResponse> CreateAsync(UpsertGigRequest request)
+    public async Task<Result<GetGigResponse>> CreateAsync(UpsertGigRequest request)
     {
         var venueId = await venueRepository.GetOrCreateAsync(request.VenueName!, request.VenueCity!);
 
@@ -65,15 +66,15 @@ public class GigService(
         await repository.AddAsync(gig);
 
         var createdGig = await repository.GetByIdAsync(gig.Id);
-        return MapToDto(createdGig!);
+        return MapToDto(createdGig!).ToSuccess();
     }
 
-    public async Task<GetGigResponse> UpdateAsync(GigId id, UpsertGigRequest request)
+    public async Task<Result<GetGigResponse>> UpdateAsync(GigId id, UpsertGigRequest request)
     {
         var gig = await repository.GetByIdAsync(id);
         if (gig == null)
         {
-            throw new NotFoundException($"Gig with ID {id} not found.");
+            return Result.NotFound<GetGigResponse>($"Gig with ID {id} not found.");
         }
 
         var venueId = await venueRepository.GetOrCreateAsync(request.VenueName!, request.VenueCity!);
@@ -83,7 +84,7 @@ public class GigService(
         await ReconcileAttendees(gig, request.Attendees);
 
         await repository.UpdateAsync(gig);
-        return MapToDto(gig);
+        return MapToDto(gig).ToSuccess();
     }
 
     private async Task UpdateGigDetails(Gig gig, UpsertGigRequest request, VenueId venueId)
@@ -179,15 +180,16 @@ public class GigService(
         }
     }
 
-    public async Task<GetGigResponse> EnrichGigAsync(GigId id)
+    public async Task<Result<GetGigResponse>> EnrichGigAsync(GigId id)
     {
         var gig = await repository.GetByIdAsync(id);
         if (gig == null)
         {
-            throw new NotFoundException($"Gig with ID {id} not found.");
+            return Result.NotFound<GetGigResponse>($"Gig with ID {id} not found.");
         }
 
-        var enrichment = await aiService.EnrichGig(gig);
+        var enrichmentResult = await aiService.EnrichGig(gig);
+        var enrichment = (enrichmentResult.IsSuccess && enrichmentResult.Data != null) ? enrichmentResult.Data : new AiEnrichmentResult();
 
         var existingArtistNames = gig.Acts
             .Where(a => a.Artist != null)
@@ -255,10 +257,10 @@ public class GigService(
 
         await repository.UpdateAsync(gig);
 
-        return MapToDto(gig);
+        return MapToDto(gig).ToSuccess();
     }
 
-    public async Task<int> EnrichAllGigsAsync()
+    public async Task<Result<int>> EnrichAllGigsAsync()
     {
         var candidates = await repository.GetEnrichmentCandidatesAsync();
         var count = 0;
@@ -266,6 +268,8 @@ public class GigService(
         {
             try
             {
+                // We ignore the result here for now as this is a background-ish task
+                // In a real scenario we might want to aggregate failures
                 await EnrichGigAsync(gig.Id);
                 count++;
             }
@@ -274,13 +278,20 @@ public class GigService(
                 // Continue with next
             }
         }
-        return count;
+        return count.ToSuccess();
     }
 
-    public async Task DeleteAsync(GigId id)
+    public async Task<Result<bool>> DeleteAsync(GigId id)
     {
+        var gig = await repository.GetByIdAsync(id);
+        if (gig == null)
+        {
+            return Result.NotFound<bool>($"Gig with ID {id} not found.");
+        }
         await repository.DeleteAsync(id);
+        return true.ToSuccess();
     }
+
 
     private static GetGigResponse MapToDto(Gig gig)
     {

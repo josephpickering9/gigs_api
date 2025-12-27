@@ -5,6 +5,7 @@ using Google.Apis.Calendar.v3.Data;
 using Google.Apis.Services;
 using Gigs.DTOs;
 using Gigs.Models;
+using Gigs.Types;
 using Microsoft.EntityFrameworkCore;
 
 namespace Gigs.Services.Calendar;
@@ -69,89 +70,109 @@ public class GoogleCalendarService : IDisposable
         });
     }
 
-    public async Task<List<CalendarEventDto>> GetCalendarEventsAsync(DateTime? startDate = null, DateTime? endDate = null)
+    public async Task<Result<List<CalendarEventDto>>> GetCalendarEventsAsync(DateTime? startDate = null, DateTime? endDate = null)
     {
-        var calendarId = _configuration["GoogleCalendar:CalendarId"] ?? "primary";
-
-        var request = _calendarService.Events.List(calendarId);
-        request.TimeMinDateTimeOffset = startDate ?? DateTime.UtcNow.AddYears(-5);
-        request.TimeMaxDateTimeOffset = endDate ?? DateTime.UtcNow;
-        request.SingleEvents = true;
-        request.OrderBy = EventsResource.ListRequest.OrderByEnum.StartTime;
-        request.MaxResults = 2500;
-
-        var events = await request.ExecuteAsync();
-        var eventDtos = new List<CalendarEventDto>();
-
-        foreach (var calendarEvent in events.Items ?? [])
+        try
         {
-            if (calendarEvent.Start?.DateTimeDateTimeOffset == null && calendarEvent.Start?.Date == null)
-                continue;
+            var calendarId = _configuration["GoogleCalendar:CalendarId"] ?? "primary";
 
-            var startDateTime = calendarEvent.Start.DateTimeDateTimeOffset?.DateTime ?? DateTime.Parse(calendarEvent.Start.Date!);
+            var request = _calendarService.Events.List(calendarId);
+            request.TimeMinDateTimeOffset = startDate ?? DateTime.UtcNow.AddYears(-5);
+            request.TimeMaxDateTimeOffset = endDate ?? DateTime.UtcNow;
+            request.SingleEvents = true;
+            request.OrderBy = EventsResource.ListRequest.OrderByEnum.StartTime;
+            request.MaxResults = 2500;
 
-            eventDtos.Add(new CalendarEventDto
+            var events = await request.ExecuteAsync();
+            var eventDtos = new List<CalendarEventDto>();
+
+            foreach (var calendarEvent in events.Items ?? [])
             {
-                Id = calendarEvent.Id,
-                Title = calendarEvent.Summary ?? "Untitled Event",
-                StartDateTime = startDateTime,
-                EndDateTime = calendarEvent.End?.DateTimeDateTimeOffset?.DateTime ?? (calendarEvent.End?.Date != null ? DateTime.Parse(calendarEvent.End.Date) : null),
-                Location = calendarEvent.Location,
-                Description = calendarEvent.Description
-            });
-        }
+                if (calendarEvent.Start?.DateTimeDateTimeOffset == null && calendarEvent.Start?.Date == null)
+                    continue;
 
-        return eventDtos;
+                var startDateTime = calendarEvent.Start.DateTimeDateTimeOffset?.DateTime ?? DateTime.Parse(calendarEvent.Start.Date!);
+
+                eventDtos.Add(new CalendarEventDto
+                {
+                    Id = calendarEvent.Id,
+                    Title = calendarEvent.Summary ?? "Untitled Event",
+                    StartDateTime = startDateTime,
+                    EndDateTime = calendarEvent.End?.DateTimeDateTimeOffset?.DateTime ?? (calendarEvent.End?.Date != null ? DateTime.Parse(calendarEvent.End.Date) : null),
+                    Location = calendarEvent.Location,
+                    Description = calendarEvent.Description
+                });
+            }
+
+            return eventDtos.ToSuccess();
+        }
+        catch (Exception ex)
+        {
+            return Result.Fail<List<CalendarEventDto>>($"Error fetching calendar events: {ex.Message}");
+        }
     }
 
-    public async Task<ImportCalendarEventsResponse> ImportEventsAsGigsAsync(DateTime? startDate = null, DateTime? endDate = null)
+    public async Task<Result<ImportCalendarEventsResponse>> ImportEventsAsGigsAsync(DateTime? startDate = null, DateTime? endDate = null)
     {
-        var events = await GetCalendarEventsAsync(startDate, endDate);
-
-        int created = 0;
-        int updated = 0;
-        int skipped = 0;
-        int venuesAtStart = await _db.Venue.CountAsync();
-
-        foreach (var calendarEvent in events)
+        try
         {
-            try
+            var eventsResult = await GetCalendarEventsAsync(startDate, endDate);
+            if (!eventsResult.IsSuccess)
             {
-                var result = await ProcessCalendarEventAsync(calendarEvent);
-                if (result.HasValue)
-                {
-                    // Save changes after each event to avoid concurrency issues
-                    await _db.SaveChangesAsync();
+                return Result.Fail<ImportCalendarEventsResponse>(eventsResult.Error?.Message ?? "Failed to fetch events");
+            }
+            
+            var events = eventsResult.Data!;
 
-                    if (result.Value)
-                        created++;
+            int created = 0;
+            int updated = 0;
+            int skipped = 0;
+            int venuesAtStart = await _db.Venue.CountAsync();
+
+            foreach (var calendarEvent in events)
+            {
+                try
+                {
+                    var result = await ProcessCalendarEventAsync(calendarEvent);
+                    if (result.HasValue)
+                    {
+                        // Save changes after each event to avoid concurrency issues
+                        await _db.SaveChangesAsync();
+
+                        if (result.Value)
+                            created++;
+                        else
+                            updated++;
+                    }
                     else
-                        updated++;
+                    {
+                        skipped++;
+                    }
                 }
-                else
+                catch (DbUpdateConcurrencyException)
                 {
+                    // Skip this event and continue - likely a duplicate or concurrent modification
                     skipped++;
+                    continue;
                 }
             }
-            catch (DbUpdateConcurrencyException)
+
+            int venuesCreated = await _db.Venue.CountAsync() - venuesAtStart;
+
+            return new ImportCalendarEventsResponse
             {
-                // Skip this event and continue - likely a duplicate or concurrent modification
-                skipped++;
-                continue;
-            }
+                EventsFound = events.Count,
+                GigsCreated = created,
+                GigsUpdated = updated,
+                EventsSkipped = skipped,
+                VenuesCreated = venuesCreated,
+                Message = $"Processed {events.Count} events: {created} created, {updated} updated, {skipped} skipped, {venuesCreated} venues created"
+            }.ToSuccess();
         }
-
-        int venuesCreated = await _db.Venue.CountAsync() - venuesAtStart;
-
-        return new ImportCalendarEventsResponse
+        catch (Exception ex)
         {
-            EventsFound = events.Count,
-            GigsCreated = created,
-            GigsUpdated = updated,
-            EventsSkipped = skipped,
-            VenuesCreated = venuesCreated,
-            Message = $"Processed {events.Count} events: {created} created, {updated} updated, {skipped} skipped, {venuesCreated} venues created"
-        };
+            return Result.Fail<ImportCalendarEventsResponse>($"Error importing calendar events: {ex.Message}");
+        }
     }
 
     private async Task<bool?> ProcessCalendarEventAsync(CalendarEventDto calendarEvent)
