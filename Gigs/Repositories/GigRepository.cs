@@ -15,7 +15,6 @@ public class GigRepository(Database database) : IGigRepository
             .Include(g => g.Venue)
             .Include(g => g.Festival)
             .Include(g => g.Acts).ThenInclude(ga => ga.Artist)
-            .Include(g => g.Acts).ThenInclude(ga => ga.Artist)
             .Include(g => g.Attendees).ThenInclude(a => a.Person)
             .AsNoTracking()
             .AsQueryable();
@@ -53,7 +52,7 @@ public class GigRepository(Database database) : IGigRepository
         if (!string.IsNullOrWhiteSpace(filter.Search))
         {
             var searchTerm = filter.Search.ToLower();
-            query = query.Where(g => 
+            query = query.Where(g =>
                 (g.Venue != null && g.Venue.Name.ToLower().Contains(searchTerm)) ||
                 g.Acts.Any(a => a.Artist != null && a.Artist.Name.ToLower().Contains(searchTerm))
             );
@@ -81,10 +80,20 @@ public class GigRepository(Database database) : IGigRepository
             .Include(g => g.Venue)
             .Include(g => g.Festival)
             .Include(g => g.Acts).ThenInclude(ga => ga.Artist)
-            .Include(g => g.Acts).ThenInclude(ga => ga.Artist)
             .Include(g => g.Acts).ThenInclude(ga => ga.Songs).ThenInclude(s => s.Song)
             .Include(g => g.Attendees).ThenInclude(a => a.Person)
             .FirstOrDefaultAsync(g => g.Id == id);
+    }
+
+    public async Task<Gig?> FindAsync(VenueId venueId, DateOnly date, ArtistId artistId)
+    {
+        return await database.Gig
+            .Include(g => g.Venue)
+            .Include(g => g.Festival)
+            .Include(g => g.Acts).ThenInclude(ga => ga.Artist)
+            .Include(g => g.Acts).ThenInclude(ga => ga.Songs).ThenInclude(s => s.Song)
+            .Include(g => g.Attendees).ThenInclude(a => a.Person)
+            .FirstOrDefaultAsync(g => g.VenueId == venueId && g.Date == date && g.Acts.Any(a => a.ArtistId == artistId && a.IsHeadliner));
     }
 
     public async Task<Gig> AddAsync(Gig gig)

@@ -14,6 +14,8 @@ public class CustomWebApplicationFactory<TProgram> : WebApplicationFactory<TProg
 {
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
+        var dbName = Guid.NewGuid().ToString();
+
         builder.ConfigureServices(services =>
         {
             var dbContextDescriptor = services.SingleOrDefault(
@@ -34,7 +36,7 @@ public class CustomWebApplicationFactory<TProgram> : WebApplicationFactory<TProg
 
             services.AddDbContext<Database>((container, options) =>
             {
-                options.UseInMemoryDatabase("InMemoryDbForTesting");
+                options.UseInMemoryDatabase(dbName);
             });
 
             var aiServiceDescriptor = services.SingleOrDefault(d => d.ServiceType == typeof(IAiEnrichmentService));

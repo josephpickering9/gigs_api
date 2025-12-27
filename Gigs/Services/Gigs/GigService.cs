@@ -35,48 +35,26 @@ public class GigService(IGigRepository repository, Database db, IFestivalReposit
     public async Task<GetGigResponse> CreateAsync(UpsertGigRequest request)
     {
         var venueId = await GetOrCreateVenue(request.VenueId, request.VenueName, request.VenueCity);
-        var festivalId = await GetOrCreateFestival(request.FestivalId, request.FestivalName);
-        
+
+        // Check for existing gig (Upsert logic)
+        var headliner = request.Acts.FirstOrDefault(a => a.IsHeadliner);
+        if (headliner != null)
+        {
+            var existingGig = await repository.FindAsync(venueId, request.Date, headliner.ArtistId);
+            if (existingGig != null)
+            {
+                return await UpdateAsync(existingGig.Id, request);
+            }
+        }
+
         var gig = new Gig
         {
-            VenueId = venueId,
-            FestivalId = festivalId,
-            Date = request.Date,
-            TicketCost = request.TicketCost,
-            TicketType = request.TicketType,
-            ImageUrl = request.ImageUrl,
-            Slug = Guid.NewGuid().ToString() // Or generate a slug from venue/date
+            Slug = Guid.NewGuid().ToString()
         };
 
-        if (request.Acts.Any())
-        {
-            foreach (var actRequest in request.Acts)
-            {
-                var gigArtist = new GigArtist
-                {
-                    ArtistId = actRequest.ArtistId,
-                    IsHeadliner = actRequest.IsHeadliner,
-                    Order = actRequest.Order,
-                    SetlistUrl = actRequest.SetlistUrl
-                };
-
-                await ProcessSetlist(gigArtist, actRequest.Setlist, actRequest.ArtistId);
-                
-                gig.Acts.Add(gigArtist);
-            }
-        }
-
-        if (request.Attendees.Any())
-        {
-            foreach (var personName in request.Attendees)
-            {
-                var personId = await GetOrCreatePerson(personName);
-                gig.Attendees.Add(new GigAttendee
-                {
-                    PersonId = personId
-                });
-            }
-        }
+        await UpdateGigDetails(gig, request, venueId);
+        await ReconcileActs(gig, request.Acts);
+        await ReconcileAttendees(gig, request.Attendees);
 
         await repository.AddAsync(gig);
 
@@ -92,21 +70,39 @@ public class GigService(IGigRepository repository, Database db, IFestivalReposit
             throw new NotFoundException($"Gig with ID {id} not found.");
         }
 
-        gig.VenueId = await GetOrCreateVenue(request.VenueId, request.VenueName, request.VenueCity);
+        var venueId = await GetOrCreateVenue(request.VenueId, request.VenueName, request.VenueCity);
+
+        await UpdateGigDetails(gig, request, venueId);
+        await ReconcileActs(gig, request.Acts);
+        await ReconcileAttendees(gig, request.Attendees);
+
+        await repository.UpdateAsync(gig);
+        return MapToDto(gig);
+    }
+
+    private async Task UpdateGigDetails(Gig gig, UpsertGigRequest request, VenueId venueId)
+    {
+        gig.VenueId = venueId;
         gig.FestivalId = await GetOrCreateFestival(request.FestivalId, request.FestivalName);
         gig.Date = request.Date;
         gig.TicketCost = request.TicketCost;
         gig.TicketType = request.TicketType;
         gig.ImageUrl = request.ImageUrl;
+    }
 
-        var requestedArtistIds = request.Acts.Select(a => a.ArtistId).ToHashSet();
+    private async Task ReconcileActs(Gig gig, List<GigArtistRequest> requestedActs)
+    {
+        var requestedArtistIds = requestedActs.Select(a => a.ArtistId).ToHashSet();
+        
+        // Remove acts not in request
         var actsToRemove = gig.Acts.Where(a => !requestedArtistIds.Contains(a.ArtistId)).ToList();
         foreach (var act in actsToRemove)
         {
             gig.Acts.Remove(act);
         }
 
-        foreach (var actRequest in request.Acts)
+        // Add or Update acts
+        foreach (var actRequest in requestedActs)
         {
             var existingAct = gig.Acts.FirstOrDefault(a => a.ArtistId == actRequest.ArtistId);
             if (existingAct != null)
@@ -130,22 +126,27 @@ public class GigService(IGigRepository repository, Database db, IFestivalReposit
                 gig.Acts.Add(newAct);
             }
         }
+    }
 
-        // Process attendees - get or create person records and sync
+    private async Task ReconcileAttendees(Gig gig, List<string> requestedAttendeeNames)
+    {
         var requestedPersonIds = new List<PersonId>();
-        foreach (var personName in request.Attendees)
+        foreach (var personName in requestedAttendeeNames)
         {
             var personId = await GetOrCreatePerson(personName);
             requestedPersonIds.Add(personId);
         }
 
         var requestedAttendeeIds = requestedPersonIds.ToHashSet();
+        
+        // Remove attendees not in request
         var attendeesToRemove = gig.Attendees.Where(a => !requestedAttendeeIds.Contains(a.PersonId)).ToList();
         foreach (var attendee in attendeesToRemove)
         {
             gig.Attendees.Remove(attendee);
         }
 
+        // Add new attendees
         foreach (var personId in requestedPersonIds)
         {
             var existingAttendee = gig.Attendees.FirstOrDefault(a => a.PersonId == personId);
@@ -153,14 +154,10 @@ public class GigService(IGigRepository repository, Database db, IFestivalReposit
             {
                 gig.Attendees.Add(new GigAttendee
                 {
-                    GigId = gig.Id,
                     PersonId = personId
                 });
             }
         }
-
-        await repository.UpdateAsync(gig);
-        return MapToDto(gig);
     }
 
     public async Task<GetGigResponse> EnrichGigAsync(GigId id)
@@ -171,7 +168,7 @@ public class GigService(IGigRepository repository, Database db, IFestivalReposit
             .Include(g => g.Acts).ThenInclude(ga => ga.Songs).ThenInclude(s => s.Song)
             .Include(g => g.Attendees)
             .FirstOrDefaultAsync(g => g.Id == id);
-            
+
         if (gig == null)
         {
             throw new NotFoundException($"Gig with ID {id} not found.");
@@ -179,7 +176,6 @@ public class GigService(IGigRepository repository, Database db, IFestivalReposit
 
         var enrichment = await aiService.EnrichGig(gig);
 
-        // Track existing artist names to avoid duplicates
         var existingArtistNames = gig.Acts
             .Where(a => a.Artist != null)
             .Select(a => a.Artist.Name.ToLower())
@@ -215,7 +211,7 @@ public class GigService(IGigRepository repository, Database db, IFestivalReposit
                     IsHeadliner = false,
                     Order = 0
                 });
-                
+
                 existingArtistNames.Add(actName.ToLower());
             }
         }
@@ -264,7 +260,7 @@ public class GigService(IGigRepository repository, Database db, IFestivalReposit
                         SongId = song.Id,
                         Order = order
                     });
-                    
+
                     existingSongTitles.Add(songTitle.ToLower());
                     order++;
                 }
@@ -284,11 +280,11 @@ public class GigService(IGigRepository repository, Database db, IFestivalReposit
             .OrderByDescending(g => g.Date)
             .ToListAsync();
 
-        var candidates = allGigs.Where(gig => 
+        var candidates = allGigs.Where(gig =>
             // Condition 1: Missing Support Acts (Contains only headliner or fewer)
             // Note: Some gigs genuinely have no support, but we check if count <= 1 as a heuristic
-            gig.Acts.Count <= 1 
-            || 
+            gig.Acts.Count <= 1
+            ||
             // Condition 2: Headliner exists but has no songs (Missing setlist)
             gig.Acts.Any(a => a.IsHeadliner && !a.Songs.Any())
         ).ToList();
@@ -414,11 +410,11 @@ public class GigService(IGigRepository repository, Database db, IFestivalReposit
     private async Task<FestivalId?> GetOrCreateFestival(FestivalId? festivalId, string? festivalName)
     {
         if (festivalId.HasValue) return festivalId.Value;
-        
+
         if (string.IsNullOrWhiteSpace(festivalName)) return null;
 
         var festival = await festivalRepository.FindByNameAsync(festivalName);
-                       
+
         if (festival == null)
         {
             festival = new Festival
@@ -428,7 +424,7 @@ public class GigService(IGigRepository repository, Database db, IFestivalReposit
             };
             await festivalRepository.AddAsync(festival);
         }
-        
+
         return festival.Id;
     }
 
