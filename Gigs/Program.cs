@@ -30,6 +30,8 @@ builder.Services.AddScoped<Gigs.Repositories.IArtistRepository, Gigs.Repositorie
 builder.Services.AddScoped<Gigs.Repositories.IVenueRepository, Gigs.Repositories.VenueRepository>();
 builder.Services.AddScoped<Gigs.Repositories.IDashboardRepository, Gigs.Repositories.DashboardRepository>();
 builder.Services.AddScoped<Gigs.Repositories.IFestivalRepository, Gigs.Repositories.FestivalRepository>();
+builder.Services.AddScoped<Gigs.Repositories.IPersonRepository, Gigs.Repositories.PersonRepository>();
+builder.Services.AddScoped<Gigs.Repositories.ISongRepository, Gigs.Repositories.SongRepository>();
 
 // Services
 builder.Services.AddScoped<IGigService, GigService>();

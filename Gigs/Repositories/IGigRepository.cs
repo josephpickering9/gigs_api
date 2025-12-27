@@ -12,4 +12,5 @@ public interface IGigRepository
     Task<Gig?> FindAsync(VenueId venueId, DateOnly date, ArtistId artistId);
     Task<Gig> UpdateAsync(Gig gig);
     Task DeleteAsync(GigId id);
+    Task<List<Gig>> GetEnrichmentCandidatesAsync();
 }

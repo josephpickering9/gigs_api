@@ -119,4 +119,17 @@ public class GigRepository(Database database) : IGigRepository
             await database.SaveChangesAsync();
         }
     }
+
+    public async Task<List<Gig>> GetEnrichmentCandidatesAsync()
+    {
+        var allGigs = await database.Gig
+            .Include(g => g.Acts).ThenInclude(ga => ga.Songs)
+            .OrderByDescending(g => g.Date)
+            .ToListAsync();
+
+        return allGigs.Where(gig =>
+            gig.Acts.Count <= 1 ||
+            gig.Acts.Any(a => a.IsHeadliner && !a.Songs.Any())
+        ).ToList();
+    }
 }

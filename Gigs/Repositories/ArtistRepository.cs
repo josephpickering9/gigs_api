@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Gigs.Models;
+using Gigs.Types;
 using Gigs.Services;
 
 namespace Gigs.Repositories;
@@ -18,5 +19,24 @@ public class ArtistRepository(Database database) : IArtistRepository
     {
         database.Artist.Update(artist);
         await database.SaveChangesAsync();
+    }
+
+    public async Task<ArtistId> GetOrCreateAsync(string name)
+    {
+        var artist = database.Artist.Local.FirstOrDefault(a => a.Name.Equals(name, StringComparison.CurrentCultureIgnoreCase))
+                     ?? await database.Artist.FirstOrDefaultAsync(a => a.Name.ToLower() == name.ToLower());
+
+        if (artist == null)
+        {
+            artist = new Artist
+            {
+                Name = name,
+                Slug = Guid.NewGuid().ToString()
+            };
+            database.Artist.Add(artist);
+            await database.SaveChangesAsync();
+        }
+
+        return artist.Id;
     }
 }

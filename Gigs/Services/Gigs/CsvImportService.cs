@@ -3,13 +3,13 @@ using CsvHelper;
 using CsvHelper.Configuration;
 using CsvHelper.Configuration.Attributes;
 using Gigs.DTOs;
-using Gigs.Models;
+using Gigs.Repositories;
 using Gigs.Types;
-using Microsoft.EntityFrameworkCore;
+using Gigs.Models;
 
 namespace Gigs.Services;
 
-public class CsvImportService(Database db, IGigService gigService) : ICsvImportService
+public class CsvImportService(IArtistRepository artistRepository, IGigService gigService) : ICsvImportService
 {
     public async Task<int> ImportGigsAsync(Stream csvStream)
     {
@@ -56,7 +56,7 @@ public class CsvImportService(Database db, IGigService gigService) : ICsvImportS
         var actsRequest = new List<GigArtistRequest>();
 
         // 1. Headliner
-        var headlinerId = await GetOrCreateArtistIdAsync(record.Headliner!);
+        var headlinerId = await artistRepository.GetOrCreateAsync(record.Headliner!);
         actsRequest.Add(new GigArtistRequest
         {
             ArtistId = headlinerId,
@@ -72,7 +72,7 @@ public class CsvImportService(Database db, IGigService gigService) : ICsvImportS
             var order = 1;
             foreach (var s in supports)
             {
-                var supportId = await GetOrCreateArtistIdAsync(s);
+                var supportId = await artistRepository.GetOrCreateAsync(s);
                 actsRequest.Add(new GigArtistRequest
                 {
                     ArtistId = supportId,
@@ -102,29 +102,6 @@ public class CsvImportService(Database db, IGigService gigService) : ICsvImportS
         };
 
         await gigService.CreateAsync(request);
-    }
-
-    private async Task<ArtistId> GetOrCreateArtistIdAsync(string name)
-    {
-        // Check Local case-insensitive
-        var artist = db.Artist.Local.FirstOrDefault(a => a.Name.Equals(name, StringComparison.InvariantCultureIgnoreCase));
-
-        if (artist == null)
-        {
-            artist = await db.Artist.FirstOrDefaultAsync(a => a.Name.ToLower() == name.ToLower());
-        }
-
-        if (artist == null)
-        {
-            artist = new Artist
-            {
-                Name = name,
-                Slug = Guid.NewGuid().ToString()
-            };
-            db.Artist.Add(artist);
-            await db.SaveChangesAsync(); // Need ID immediately for the request
-        }
-        return artist.Id;
     }
 
     private List<string> SplitWithAmpersandKeep(string input)
@@ -187,4 +164,3 @@ public class CsvImportService(Database db, IGigService gigService) : ICsvImportS
         public string? SetlistUrl { get; set; }
     }
 }
-
