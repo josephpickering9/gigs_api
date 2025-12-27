@@ -1,9 +1,12 @@
 using System.Data.Common;
+using Gigs.Models;
 using Gigs.Services;
+using Gigs.Services.AI;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Moq;
 
 namespace GigsTests;
 
@@ -33,6 +36,17 @@ public class CustomWebApplicationFactory<TProgram> : WebApplicationFactory<TProg
             {
                 options.UseInMemoryDatabase("InMemoryDbForTesting");
             });
+
+            var aiServiceDescriptor = services.SingleOrDefault(d => d.ServiceType == typeof(IAiEnrichmentService));
+            if (aiServiceDescriptor != null)
+            {
+                services.Remove(aiServiceDescriptor);
+            }
+
+            var mockAiService = new Mock<IAiEnrichmentService>();
+            mockAiService.Setup(x => x.EnrichGig(It.IsAny<Gig>()))
+                .ReturnsAsync(new AiEnrichmentResult());
+            services.AddScoped(_ => mockAiService.Object);
         });
 
         builder.UseEnvironment("Development");
