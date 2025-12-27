@@ -16,4 +16,6 @@ public interface IDashboardRepository
     Task<List<TopCityResponse>> GetTopCitiesAsync(int limit = 10);
     Task<InterestingInsightsResponse> GetInterestingInsightsAsync();
     Task<List<MostHeardSongResponse>> GetMostHeardSongsAsync(int limit = 10);
+    Task<AttendeeInsightsResponse> GetAttendeeInsightsAsync();
+    Task<List<TopAttendeeResponse>> GetTopAttendeesAsync(int limit = 10);
 }

@@ -184,4 +184,68 @@ public class GigControllerTests : IClassFixture<CustomWebApplicationFactory<Prog
         // We added attendee to gigs with index < 5 -> 5 gigs (0, 1, 2, 3, 4)
         Assert.Equal(5, result.TotalCount);
     }
+
+    [Fact]
+    public async Task Create_Upsert_UpdatesExistingGig_WhenDuplicateFound()
+    {
+        await SeedData();
+
+        // 1. Pick an existing gig to duplicate
+        // Gig 0: Venue: Wembley (venue1), Date: Now, Headliner: Metallica (artist1)
+        var originalGigDate = DateOnly.FromDateTime(DateTime.Now);
+        
+        // 2. Create a request that matches this gig's core criteria
+        var request = new UpsertGigRequest
+        {
+            VenueName = "Wembley Stadium", // Matches venue1
+            VenueCity = "London",
+            Date = originalGigDate,
+            TicketType = TicketType.VIP, // Different ticket type to verify update
+            ImageUrl = "http://new-image.com", // Different image
+            Acts = new List<GigArtistRequest>
+            {
+                new GigArtistRequest
+                {
+                    ArtistId = (await GetArtistIdByName("Metallica")), // Matches headliner
+                    IsHeadliner = true,
+                    Order = 0,
+                    Setlist = new List<string> { "Enter Sandman", "Master of Puppets" } // New setlist
+                }
+            }
+        };
+
+        // 3. Send Create request
+        var response = await _client.PostAsJsonAsync("/api/gigs", request, _jsonOptions);
+        response.EnsureSuccessStatusCode();
+
+        var result = await response.Content.ReadFromJsonAsync<GetGigResponse>(_jsonOptions);
+
+        // 4. Assert
+        Assert.NotNull(result);
+        
+        // Should have the same ID as the original gig (we can't easily know the ID without querying, 
+        // but we can check total count didn't increase)
+        
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<Database>();
+            var totalGigs = await db.Gig.CountAsync();
+            Assert.Equal(15, totalGigs); // Should still be 15, not 16
+            
+            var updatedGig = await db.Gig.Include(g => g.Acts).ThenInclude(a => a.Songs).ThenInclude(s => s.Song).FirstAsync(g => g.Id == result.Id);
+            Assert.Equal(TicketType.VIP, updatedGig.TicketType);
+            Assert.Equal("http://new-image.com", updatedGig.ImageUrl);
+            Assert.Contains(updatedGig.Acts.First().Songs, s => s.Song.Title == "Enter Sandman");
+        }
+    }
+
+    private async Task<ArtistId> GetArtistIdByName(string name)
+    {
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<Database>();
+            var artist = await db.Artist.FirstAsync(a => a.Name == name);
+            return artist.Id;
+        }
+    }
 }

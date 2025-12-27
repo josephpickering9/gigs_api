@@ -11,6 +11,9 @@ public class Gig
     [Required] public VenueId VenueId { get; set; }
 
     public Venue Venue { get; set; } = null!;
+    
+    public FestivalId? FestivalId { get; set; }
+    public Festival? Festival { get; set; }
 
     [Required] public DateOnly Date { get; set; }
 

@@ -6,6 +6,7 @@ public class DashboardStatsResponse
     public TopArtistStats? TopArtist { get; set; }
     public TopVenueStats? TopVenue { get; set; }
     public TopCityStats? TopCity { get; set; }
+    public TopAttendeeStats? TopAttendee { get; set; }
 }
 
 public class TopArtistStats
@@ -23,5 +24,11 @@ public class TopVenueStats
 public class TopCityStats
 {
     public string CityName { get; set; } = string.Empty;
+    public int GigCount { get; set; }
+}
+
+public class TopAttendeeStats
+{
+    public string PersonName { get; set; } = string.Empty;
     public int GigCount { get; set; }
 }

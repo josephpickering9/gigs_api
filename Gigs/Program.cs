@@ -29,11 +29,13 @@ builder.Services.AddScoped<Gigs.Repositories.IGigRepository, Gigs.Repositories.G
 builder.Services.AddScoped<Gigs.Repositories.IArtistRepository, Gigs.Repositories.ArtistRepository>();
 builder.Services.AddScoped<Gigs.Repositories.IVenueRepository, Gigs.Repositories.VenueRepository>();
 builder.Services.AddScoped<Gigs.Repositories.IDashboardRepository, Gigs.Repositories.DashboardRepository>();
+builder.Services.AddScoped<Gigs.Repositories.IFestivalRepository, Gigs.Repositories.FestivalRepository>();
 
 // Services
 builder.Services.AddScoped<IGigService, GigService>();
 builder.Services.AddScoped<IArtistService, ArtistService>();
 builder.Services.AddScoped<IVenueService, VenueService>();
+builder.Services.AddScoped<IFestivalService, FestivalService>();
 builder.Services.AddScoped<ICsvImportService, CsvImportService>();
 builder.Services.AddScoped<IDashboardService, DashboardService>();
 builder.Services.AddScoped<Gigs.Services.AI.IAiEnrichmentService, Gigs.Services.AI.AiEnrichmentService>();
@@ -43,7 +45,7 @@ builder.Services.AddScoped<Gigs.Services.External.ISpotifyService, Gigs.Services
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
-    c.SwaggerDoc("v1", new OpenApiInfo { Title = "Gigs API", Version = "v1" });
+    c.SwaggerDoc("v1", new OpenApiInfo { Title = "Gigs API", Version = "" });
 
     c.OperationFilter<SwaggerFileOperationFilter>();
     c.SchemaFilter<EnumDescriptionSchemaFilter>();
@@ -56,6 +58,7 @@ builder.Services.AddSwaggerGen(c =>
     c.MapType<PersonId>(() => new OpenApiSchema { Type = "string", Format = "uuid" });
     c.MapType<GigArtistId>(() => new OpenApiSchema { Type = "string", Format = "uuid" });
     c.MapType<SongId>(() => new OpenApiSchema { Type = "string", Format = "uuid" });
+    c.MapType<FestivalId>(() => new OpenApiSchema { Type = "string", Format = "uuid" });
 
 });
 builder.Services.AddControllers()

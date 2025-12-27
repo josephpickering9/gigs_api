@@ -91,4 +91,18 @@ public class DashboardController(IDashboardService dashboardService) : Controlle
         var data = await dashboardService.GetMostHeardSongsAsync(limit);
         return Ok(data);
     }
+
+    [HttpGet("attendee-insights")]
+    public async Task<ActionResult<AttendeeInsightsResponse>> GetAttendeeInsights()
+    {
+        var data = await dashboardService.GetAttendeeInsightsAsync();
+        return Ok(data);
+    }
+
+    [HttpGet("top-attendees")]
+    public async Task<ActionResult<List<TopAttendeeResponse>>> GetTopAttendees([FromQuery] int limit = 10)
+    {
+        var data = await dashboardService.GetTopAttendeesAsync(limit);
+        return Ok(data);
+    }
 }

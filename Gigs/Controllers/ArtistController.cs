@@ -6,7 +6,7 @@ using Gigs.Types;
 namespace Gigs.Controllers;
 
 [ApiController]
-[Route("api/v1/[controller]s")]
+[Route("api/[controller]s")]
 public class ArtistController(IArtistService artistService) : ControllerBase
 {
     [HttpGet]

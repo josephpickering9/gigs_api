@@ -54,6 +54,13 @@ public readonly record struct SongId(Guid Value) : IId
     public static SongId New() => new(Guid.NewGuid());
 }
 
+[TypeConverter(typeof(GuidIdTypeConverter<FestivalId>))]
+public readonly record struct FestivalId(Guid Value) : IId
+{
+    public override string ToString() => Value.ToString();
+    public static FestivalId New() => new(Guid.NewGuid());
+}
+
 public class GuidIdTypeConverter<TId> : TypeConverter where TId : struct, IId
 {
     public override bool CanConvertFrom(ITypeDescriptorContext? context, Type sourceType) =>

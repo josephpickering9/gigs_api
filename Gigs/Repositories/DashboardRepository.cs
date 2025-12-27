@@ -49,12 +49,24 @@ public class DashboardRepository(Database database) : IDashboardRepository
             .OrderByDescending(x => x.GigCount)
             .FirstOrDefaultAsync();
 
+        var topAttendee = await database.GigAttendee
+            .Include(ga => ga.Person)
+            .GroupBy(ga => new { ga.PersonId, ga.Person.Name })
+            .Select(g => new TopAttendeeStats
+            {
+                PersonName = g.Key.Name,
+                GigCount = g.Count()
+            })
+            .OrderByDescending(x => x.GigCount)
+            .FirstOrDefaultAsync();
+
         return new DashboardStatsResponse
         {
             TotalGigs = totalGigs,
             TopArtist = topArtist,
             TopVenue = topVenue,
-            TopCity = topCity
+            TopCity = topCity,
+            TopAttendee = topAttendee
         };
     }
 
@@ -303,6 +315,40 @@ public class DashboardRepository(Database database) : IDashboardRepository
                 TimesHeard = g.Count()
             })
             .OrderByDescending(x => x.TimesHeard)
+            .Take(limit)
+            .ToListAsync();
+    }
+
+    public async Task<AttendeeInsightsResponse> GetAttendeeInsightsAsync()
+    {
+        var totalUniqueAttendees = await database.GigAttendee
+            .Select(ga => ga.PersonId)
+            .Distinct()
+            .CountAsync();
+
+        var totalGigsWithAttendees = await database.Gig
+            .Where(g => g.Attendees.Any())
+            .CountAsync();
+
+        return new AttendeeInsightsResponse
+        {
+            TotalUniqueAttendees = totalUniqueAttendees,
+            TotalGigsWithAttendees = totalGigsWithAttendees
+        };
+    }
+
+    public async Task<List<TopAttendeeResponse>> GetTopAttendeesAsync(int limit = 10)
+    {
+        return await database.GigAttendee
+            .Include(ga => ga.Person)
+            .GroupBy(ga => new { ga.PersonId, ga.Person.Name })
+            .Select(g => new TopAttendeeResponse
+            {
+                PersonId = g.Key.PersonId.ToString(),
+                PersonName = g.Key.Name,
+                GigCount = g.Count()
+            })
+            .OrderByDescending(x => x.GigCount)
             .Take(limit)
             .ToListAsync();
     }
