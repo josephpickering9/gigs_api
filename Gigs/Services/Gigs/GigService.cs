@@ -68,8 +68,9 @@ public class GigService(IGigRepository repository, Database db, IFestivalReposit
 
         if (request.Attendees.Any())
         {
-            foreach (var personId in request.Attendees)
+            foreach (var personName in request.Attendees)
             {
+                var personId = await GetOrCreatePerson(personName);
                 gig.Attendees.Add(new GigAttendee
                 {
                     PersonId = personId
@@ -130,14 +131,22 @@ public class GigService(IGigRepository repository, Database db, IFestivalReposit
             }
         }
 
-        var requestedAttendeeIds = request.Attendees.ToHashSet();
+        // Process attendees - get or create person records and sync
+        var requestedPersonIds = new List<PersonId>();
+        foreach (var personName in request.Attendees)
+        {
+            var personId = await GetOrCreatePerson(personName);
+            requestedPersonIds.Add(personId);
+        }
+
+        var requestedAttendeeIds = requestedPersonIds.ToHashSet();
         var attendeesToRemove = gig.Attendees.Where(a => !requestedAttendeeIds.Contains(a.PersonId)).ToList();
         foreach (var attendee in attendeesToRemove)
         {
             gig.Attendees.Remove(attendee);
         }
 
-        foreach (var personId in request.Attendees)
+        foreach (var personId in requestedPersonIds)
         {
             var existingAttendee = gig.Attendees.FirstOrDefault(a => a.PersonId == personId);
             if (existingAttendee == null)
@@ -421,5 +430,29 @@ public class GigService(IGigRepository repository, Database db, IFestivalReposit
         }
         
         return festival.Id;
+    }
+
+    private async Task<PersonId> GetOrCreatePerson(string personName)
+    {
+        if (string.IsNullOrWhiteSpace(personName))
+        {
+            throw new ArgumentException("Person name cannot be empty.");
+        }
+
+        var person = db.Person.Local.FirstOrDefault(p => p.Name.Equals(personName, StringComparison.CurrentCultureIgnoreCase))
+                     ?? await db.Person.FirstOrDefaultAsync(p => p.Name.ToLower() == personName.ToLower());
+
+        if (person == null)
+        {
+            person = new Person
+            {
+                Name = personName,
+                Slug = Guid.NewGuid().ToString()
+            };
+            db.Person.Add(person);
+            await db.SaveChangesAsync();
+        }
+
+        return person.Id;
     }
 }

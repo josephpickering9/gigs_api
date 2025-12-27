@@ -27,5 +27,5 @@ public class UpsertGigRequest
     
     public List<GigArtistRequest> Acts { get; set; } = [];
     
-    public List<PersonId> Attendees { get; set; } = [];
+    public List<string> Attendees { get; set; } = [];
 }

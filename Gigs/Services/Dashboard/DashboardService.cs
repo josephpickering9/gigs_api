@@ -64,4 +64,14 @@ public class DashboardService(IDashboardRepository dashboardRepository) : IDashb
     {
         return await dashboardRepository.GetMostHeardSongsAsync(limit);
     }
+
+    public async Task<AttendeeInsightsResponse> GetAttendeeInsightsAsync()
+    {
+        return await dashboardRepository.GetAttendeeInsightsAsync();
+    }
+
+    public async Task<List<TopAttendeeResponse>> GetTopAttendeesAsync(int limit = 10)
+    {
+        return await dashboardRepository.GetTopAttendeesAsync(limit);
+    }
 }
