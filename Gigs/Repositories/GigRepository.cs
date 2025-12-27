@@ -7,7 +7,7 @@ using Gigs.DTOs;
 
 namespace Gigs.Repositories;
 
-public class GigRepository(Database database) : IGigRepository
+public class GigRepository(Database database)
 {
     public async Task<(List<Gig> Items, int TotalCount)> GetAllAsync(GetGigsFilter filter)
     {

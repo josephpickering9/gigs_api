@@ -6,7 +6,7 @@ namespace Gigs.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-public class DashboardController(IDashboardService dashboardService) : ControllerBase
+public class DashboardController(DashboardService dashboardService) : ControllerBase
 {
     [HttpGet("stats")]
     public async Task<ActionResult<DashboardStatsResponse>> GetDashboardStats()

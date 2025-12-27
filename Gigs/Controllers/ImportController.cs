@@ -6,7 +6,7 @@ namespace Gigs.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-public class ImportController(ICsvImportService importService) : ControllerBase
+public class ImportController(CsvImportService importService) : ControllerBase
 {
     [HttpPost("csv")]
     public async Task<IActionResult> ImportCsv(IFormFile file)

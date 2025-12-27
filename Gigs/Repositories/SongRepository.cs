@@ -5,7 +5,7 @@ using Gigs.Services;
 
 namespace Gigs.Repositories;
 
-public class SongRepository(Database database) : ISongRepository
+public class SongRepository(Database database)
 {
     public async Task<Song> GetOrCreateAsync(ArtistId artistId, string title)
     {

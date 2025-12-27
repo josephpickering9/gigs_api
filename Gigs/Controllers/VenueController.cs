@@ -7,7 +7,7 @@ namespace Gigs.Controllers;
 
 [ApiController]
 [Route("api/[controller]s")]
-public class VenueController(IVenueService venueService) : ControllerBase
+public class VenueController(VenueService venueService) : ControllerBase
 {
     [HttpGet]
     public async Task<ActionResult<List<GetVenueResponse>>> GetAll()

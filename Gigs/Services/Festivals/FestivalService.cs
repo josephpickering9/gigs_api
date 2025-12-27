@@ -6,7 +6,7 @@ using Gigs.Types;
 
 namespace Gigs.Services;
 
-public class FestivalService(IFestivalRepository repository, IGigService gigService) : IFestivalService
+public class FestivalService(FestivalRepository repository, GigService gigService)
 {
     public async Task<List<FestivalDto>> GetAllAsync()
     {

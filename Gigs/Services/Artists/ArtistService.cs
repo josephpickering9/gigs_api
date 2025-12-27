@@ -3,16 +3,17 @@ using Gigs.Types;
 using Gigs.Models;
 using Gigs.Repositories;
 using Gigs.Services.AI;
+using Gigs.Services.External;
 using Gigs.Services.Image;
 
 namespace Gigs.Services;
 
 public class ArtistService(
-    IArtistRepository repository,
-    IAiEnrichmentService aiEnrichmentService,
-    IImageService imageService,
+    ArtistRepository repository,
+    AiEnrichmentService aiEnrichmentService,
+    ImageService imageService,
     IHttpClientFactory httpClientFactory,
-    Gigs.Services.External.ISpotifyService spotifyService) : IArtistService
+    SpotifyService spotifyService)
 {
     public async Task<List<GetArtistResponse>> GetAllAsync()
     {

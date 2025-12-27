@@ -4,7 +4,7 @@ using Gigs.Services;
 
 namespace Gigs.Repositories;
 
-public class DashboardRepository(Database database) : IDashboardRepository
+public class DashboardRepository(Database database)
 {
     public async Task<DashboardStatsResponse> GetDashboardStatsAsync()
     {

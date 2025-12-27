@@ -5,12 +5,7 @@ using SpotifyAPI.Web;
 
 namespace Gigs.Services.External;
 
-public interface ISpotifyService
-{
-    Task<string?> GetArtistImageAsync(string artistName);
-}
-
-public class SpotifyService : ISpotifyService
+public class SpotifyService
 {
     private readonly IConfiguration _configuration;
     private readonly ILogger<SpotifyService> _logger;

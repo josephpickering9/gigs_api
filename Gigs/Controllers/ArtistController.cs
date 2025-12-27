@@ -7,7 +7,7 @@ namespace Gigs.Controllers;
 
 [ApiController]
 [Route("api/[controller]s")]
-public class ArtistController(IArtistService artistService) : ControllerBase
+public class ArtistController(ArtistService artistService) : ControllerBase
 {
     [HttpGet]
     public async Task<ActionResult<List<GetArtistResponse>>> GetAll()

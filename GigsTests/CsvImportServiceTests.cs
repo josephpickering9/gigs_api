@@ -22,7 +22,7 @@ public class CsvImportServiceTests : IClassFixture<CustomWebApplicationFactory<P
         // Arrange
         using var scope = _factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<Database>();
-        var csvService = scope.ServiceProvider.GetRequiredService<ICsvImportService>();
+        var csvService = scope.ServiceProvider.GetRequiredService<CsvImportService>();
 
         // Ensure clean state
         db.Database.EnsureDeleted();

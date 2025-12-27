@@ -7,7 +7,7 @@ namespace Gigs.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-public class FestivalsController(IFestivalService service) : ControllerBase
+public class FestivalsController(FestivalService service) : ControllerBase
 {
     [HttpGet]
     public async Task<ActionResult<List<FestivalDto>>> GetAll()

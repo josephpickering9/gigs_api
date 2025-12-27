@@ -9,7 +9,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Gigs.Services.Calendar;
 
-public class GoogleCalendarService : IGoogleCalendarService
+public class GoogleCalendarService : IDisposable
 {
     private readonly IConfiguration _configuration;
     private readonly Database _db;
@@ -397,5 +397,10 @@ public class GoogleCalendarService : IGoogleCalendarService
         public DateOnly Date { get; set; }
         public List<string> SupportActs { get; set; } = new();
         public decimal? TicketCost { get; set; }
+    }
+
+    public void Dispose()
+    {
+        _calendarService.Dispose();
     }
 }

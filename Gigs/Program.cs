@@ -20,29 +20,29 @@ builder.Services.AddDbContext<Database>(options =>
 );
 
 builder.Services.AddHttpContextAccessor();
-builder.Services.AddScoped<IFileService, FileService>();
-builder.Services.AddScoped<IImageService, ImageService>();
+builder.Services.AddScoped<FileService>();
+builder.Services.AddScoped<ImageService>();
 builder.Services.AddHttpClient();
 
 // Repositories
-builder.Services.AddScoped<Gigs.Repositories.IGigRepository, Gigs.Repositories.GigRepository>();
-builder.Services.AddScoped<Gigs.Repositories.IArtistRepository, Gigs.Repositories.ArtistRepository>();
-builder.Services.AddScoped<Gigs.Repositories.IVenueRepository, Gigs.Repositories.VenueRepository>();
-builder.Services.AddScoped<Gigs.Repositories.IDashboardRepository, Gigs.Repositories.DashboardRepository>();
-builder.Services.AddScoped<Gigs.Repositories.IFestivalRepository, Gigs.Repositories.FestivalRepository>();
-builder.Services.AddScoped<Gigs.Repositories.IPersonRepository, Gigs.Repositories.PersonRepository>();
-builder.Services.AddScoped<Gigs.Repositories.ISongRepository, Gigs.Repositories.SongRepository>();
+builder.Services.AddScoped<Gigs.Repositories.GigRepository>();
+builder.Services.AddScoped<Gigs.Repositories.ArtistRepository>();
+builder.Services.AddScoped<Gigs.Repositories.VenueRepository>();
+builder.Services.AddScoped<Gigs.Repositories.DashboardRepository>();
+builder.Services.AddScoped<Gigs.Repositories.FestivalRepository>();
+builder.Services.AddScoped<Gigs.Repositories.PersonRepository>();
+builder.Services.AddScoped<Gigs.Repositories.SongRepository>();
 
 // Services
-builder.Services.AddScoped<IGigService, GigService>();
-builder.Services.AddScoped<IArtistService, ArtistService>();
-builder.Services.AddScoped<IVenueService, VenueService>();
-builder.Services.AddScoped<IFestivalService, FestivalService>();
-builder.Services.AddScoped<ICsvImportService, CsvImportService>();
-builder.Services.AddScoped<IDashboardService, DashboardService>();
-builder.Services.AddScoped<Gigs.Services.AI.IAiEnrichmentService, Gigs.Services.AI.AiEnrichmentService>();
-builder.Services.AddScoped<Gigs.Services.Calendar.IGoogleCalendarService, Gigs.Services.Calendar.GoogleCalendarService>();
-builder.Services.AddScoped<Gigs.Services.External.ISpotifyService, Gigs.Services.External.SpotifyService>();
+builder.Services.AddScoped<GigService>();
+builder.Services.AddScoped<ArtistService>();
+builder.Services.AddScoped<VenueService>();
+builder.Services.AddScoped<FestivalService>();
+builder.Services.AddScoped<CsvImportService>();
+builder.Services.AddScoped<DashboardService>();
+builder.Services.AddScoped<Gigs.Services.AI.AiEnrichmentService>();
+builder.Services.AddScoped<Gigs.Services.Calendar.GoogleCalendarService>();
+builder.Services.AddScoped<Gigs.Services.External.SpotifyService>();
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>

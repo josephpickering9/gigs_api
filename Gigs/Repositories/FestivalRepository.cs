@@ -5,7 +5,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Gigs.Repositories;
 
-public class FestivalRepository(Database database) : IFestivalRepository
+public class FestivalRepository(Database database)
 {
     public async Task<List<Festival>> GetAllAsync()
     {

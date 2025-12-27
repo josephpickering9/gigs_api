@@ -3,7 +3,7 @@ using Gigs.Utils;
 
 namespace Gigs.Services;
 
-public class FileService(IWebHostEnvironment hostEnvironment) : IFileService
+public class FileService(IWebHostEnvironment hostEnvironment)
 {
     public async Task<Result<string>> SaveFileAsync(byte[] file, string name = "image.png")
     {

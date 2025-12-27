@@ -3,7 +3,7 @@ using Gigs.Repositories;
 
 namespace Gigs.Services;
 
-public class DashboardService(IDashboardRepository dashboardRepository) : IDashboardService
+public class DashboardService(DashboardRepository dashboardRepository)
 {
     public async Task<DashboardStatsResponse> GetDashboardStatsAsync()
     {

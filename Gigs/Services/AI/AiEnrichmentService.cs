@@ -8,13 +8,6 @@ using Value = Google.Protobuf.WellKnownTypes.Value;
 
 namespace Gigs.Services.AI;
 
-public interface IAiEnrichmentService
-{
-    Task<AiEnrichmentResult> EnrichGig(Gig gig);
-    Task<string?> EnrichArtistImage(string artistName);
-    Task<string?> EnrichVenueImage(string venueName, string city);
-}
-
 public class AiEnrichmentResult
 {
     public List<string> SupportActs { get; set; } = [];
@@ -22,7 +15,7 @@ public class AiEnrichmentResult
     public string? ImageSearchQuery { get; set; }
 }
 
-public class AiEnrichmentService : IAiEnrichmentService
+public class AiEnrichmentService
 {
     private readonly PredictionServiceClient _predictionServiceClient;
     private readonly string _projectId;
@@ -74,9 +67,14 @@ public class AiEnrichmentService : IAiEnrichmentService
         _predictionServiceClient = builder.Build();
     }
 
-    public async Task<AiEnrichmentResult> EnrichGig(Gig gig)
+    public virtual async Task<AiEnrichmentResult> EnrichGig(Gig gig)
     {
         var endpoint = EndpointName.FormatProjectLocationPublisherModel(_projectId, _location, _publisher, _model);
+        
+        // ... (rest of method ignored for replacement match if I use correct target)
+        // Wait, I can't match partially easily without including body.
+        // Better to use multi_replace for signatures.
+
 
         var prompt = $@"
 You are a music historian helper.
@@ -194,7 +192,7 @@ Output strictly in JSON format:
         }
     }
 
-    public async Task<string?> EnrichArtistImage(string artistName)
+    public virtual async Task<string?> EnrichArtistImage(string artistName)
     {
         var endpoint = EndpointName.FormatProjectLocationPublisherModel(_projectId, _location, _publisher, _model);
 
@@ -246,7 +244,7 @@ If you absolutely cannot find one, return 'null'.
         }
     }
 
-    public async Task<string?> EnrichVenueImage(string venueName, string city)
+    public virtual async Task<string?> EnrichVenueImage(string venueName, string city)
     {
         var endpoint = EndpointName.FormatProjectLocationPublisherModel(_projectId, _location, _publisher, _model);
 

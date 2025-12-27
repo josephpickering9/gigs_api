@@ -6,7 +6,7 @@ using Gigs.Utils;
 
 namespace Gigs.Services.Image;
 
-public class ImageService : IImageService
+public class ImageService
 {
     private readonly IWebHostEnvironment _env;
     private readonly string? _tinifyApiKey;

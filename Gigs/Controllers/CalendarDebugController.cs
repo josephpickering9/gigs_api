@@ -8,10 +8,10 @@ namespace Gigs.Controllers;
 [Route("api/[controller]")]
 public class CalendarDebugController : ControllerBase
 {
-    private readonly IGoogleCalendarService _calendarService;
+    private readonly GoogleCalendarService _calendarService;
     private readonly Services.Database _db;
 
-    public CalendarDebugController(IGoogleCalendarService calendarService, Services.Database db)
+    public CalendarDebugController(GoogleCalendarService calendarService, Services.Database db)
     {
         _calendarService = calendarService;
         _db = db;

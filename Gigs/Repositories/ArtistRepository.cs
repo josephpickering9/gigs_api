@@ -5,7 +5,7 @@ using Gigs.Services;
 
 namespace Gigs.Repositories;
 
-public class ArtistRepository(Database database) : IArtistRepository
+public class ArtistRepository(Database database)
 {
     public async Task<List<Artist>> GetAllAsync()
     {

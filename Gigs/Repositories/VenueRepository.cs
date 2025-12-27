@@ -5,7 +5,7 @@ using Gigs.Services;
 
 namespace Gigs.Repositories;
 
-public class VenueRepository(Database database) : IVenueRepository
+public class VenueRepository(Database database)
 {
     public async Task<List<Venue>> GetAllAsync()
     {

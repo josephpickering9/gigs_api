@@ -7,7 +7,7 @@ namespace Gigs.Controllers;
 
 [ApiController]
 [Route("api/[controller]s")] // api/gigs
-public class GigController(IGigService gigService) : ControllerBase
+public class GigController(GigService gigService) : ControllerBase
 {
     [HttpGet]
     public async Task<ActionResult<PaginatedResponse<GetGigResponse>>> GetAll([FromQuery] GetGigsFilter filter)

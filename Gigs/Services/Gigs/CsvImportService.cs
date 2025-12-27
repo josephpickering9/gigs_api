@@ -9,7 +9,7 @@ using Gigs.Models;
 
 namespace Gigs.Services;
 
-public class CsvImportService(IArtistRepository artistRepository, IGigService gigService) : ICsvImportService
+public class CsvImportService(ArtistRepository artistRepository, GigService gigService)
 {
     public async Task<int> ImportGigsAsync(Stream csvStream)
     {

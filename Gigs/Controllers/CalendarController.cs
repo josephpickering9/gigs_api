@@ -8,9 +8,9 @@ namespace Gigs.Controllers;
 [Route("api/[controller]")]
 public class CalendarController : ControllerBase
 {
-    private readonly IGoogleCalendarService _calendarService;
+    private readonly GoogleCalendarService _calendarService;
 
-    public CalendarController(IGoogleCalendarService calendarService)
+    public CalendarController(GoogleCalendarService calendarService)
     {
         _calendarService = calendarService;
     }

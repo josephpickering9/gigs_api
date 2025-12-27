@@ -8,13 +8,13 @@ using Gigs.Types;
 namespace Gigs.Services;
 
 public class GigService(
-    IGigRepository repository,
-    IArtistRepository artistRepository,
-    IVenueRepository venueRepository,
-    IFestivalRepository festivalRepository,
-    IPersonRepository personRepository,
-    ISongRepository songRepository,
-    IAiEnrichmentService aiService) : IGigService
+    GigRepository repository,
+    ArtistRepository artistRepository,
+    VenueRepository venueRepository,
+    FestivalRepository festivalRepository,
+    PersonRepository personRepository,
+    SongRepository songRepository,
+    AiEnrichmentService aiService)
 {
     public async Task<PaginatedResponse<GetGigResponse>> GetAllAsync(GetGigsFilter filter)
     {

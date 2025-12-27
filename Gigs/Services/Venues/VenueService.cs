@@ -8,10 +8,10 @@ using Gigs.Services.Image;
 namespace Gigs.Services;
 
 public class VenueService(
-    IVenueRepository repository,
-    IAiEnrichmentService aiEnrichmentService,
-    IImageService imageService,
-    IHttpClientFactory httpClientFactory) : IVenueService
+    VenueRepository repository,
+    AiEnrichmentService aiEnrichmentService,
+    ImageService imageService,
+    IHttpClientFactory httpClientFactory)
 {
     public async Task<List<GetVenueResponse>> GetAllAsync()
     {
