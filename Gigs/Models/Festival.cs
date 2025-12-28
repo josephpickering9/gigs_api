@@ -16,7 +16,15 @@ public class Festival
 
     public int? Year { get; set; }
 
+    public DateOnly? StartDate { get; set; }
+
+    public DateOnly? EndDate { get; set; }
+
+    public decimal? Price { get; set; }
+
     public string? ImageUrl { get; set; }
 
     public List<Gig> Gigs { get; set; } =[];
+
+    public List<FestivalAttendee> Attendees { get; set; } = [];
 }

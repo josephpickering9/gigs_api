@@ -18,6 +18,8 @@ public class UpsertGigRequest
     [Required]
     public DateOnly Date { get; set; }
 
+    public int Order { get; set; }
+
     public decimal? TicketCost { get; set; }
 
     [Required]

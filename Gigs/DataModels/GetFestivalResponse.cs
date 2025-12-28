@@ -10,4 +10,11 @@ public class GetFestivalResponse
     public string Slug { get; set; } = string.Empty;
     public string? ImageUrl { get; set; }
     public List<GetGigResponse>? Gigs { get; set; }
+    
+    public DateOnly? StartDate { get; set; }
+    public DateOnly? EndDate { get; set; }
+    public decimal? Price { get; set; }
+    public decimal? DailyPrice { get; set; }
+    
+    public List<GetPersonResponse> Attendees { get; set; } = [];
 }

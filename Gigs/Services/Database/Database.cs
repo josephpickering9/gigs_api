@@ -11,6 +11,7 @@ public class Database(DbContextOptions<Database> options): DbContext(options)
     public DbSet<Artist> Artist { get; set; }
     public DbSet<Venue> Venue { get; set; }
     public DbSet<Festival> Festival { get; set; }
+    public DbSet<FestivalAttendee> FestivalAttendee { get; set; }
     public DbSet<Person> Person { get; set; }
     public DbSet<Song> Song { get; set; }
     public DbSet<GigArtist> GigArtist { get; set; }
@@ -82,6 +83,15 @@ public class Database(DbContextOptions<Database> options): DbContext(options)
         modelBuilder.Entity<GigAttendee>()
             .Property(e => e.GigId).HasGuidIdConversion();
         modelBuilder.Entity<GigAttendee>()
+            .Property(e => e.PersonId).HasGuidIdConversion();
+
+        
+        // FestivalAttendee (Junction)
+        modelBuilder.Entity<FestivalAttendee>()
+            .HasKey(t => new { t.FestivalId, t.PersonId });
+        modelBuilder.Entity<FestivalAttendee>()
+            .Property(e => e.FestivalId).HasGuidIdConversion();
+        modelBuilder.Entity<FestivalAttendee>()
             .Property(e => e.PersonId).HasGuidIdConversion();
     }
 }

@@ -148,6 +148,7 @@ public class GigService(
         }
 
         gig.Date = request.Date;
+        gig.Order = request.Order;
         gig.TicketCost = request.TicketCost;
         gig.TicketType = request.TicketType;
         gig.ImageUrl = request.ImageUrl;
@@ -365,6 +366,7 @@ public class GigService(
             FestivalId = gig.FestivalId,
             FestivalName = gig.Festival?.Name,
             Date = gig.Date,
+            Order = gig.Order,
             TicketCost = gig.TicketCost,
             TicketType = gig.TicketType,
             ImageUrl = gig.ImageUrl ?? gig.Acts.FirstOrDefault(a => a.IsHeadliner)?.Artist?.ImageUrl ?? gig.Venue?.ImageUrl,
