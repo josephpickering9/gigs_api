@@ -54,7 +54,8 @@ public class GigService(
             {
                 return Result.Fail<GetGigResponse>("Venue Name or Valid Venue ID is required.");
             }
-            venueId = await venueRepository.GetOrCreateAsync(venueName, request.VenueCity ?? "");
+            var venueCity = !string.IsNullOrWhiteSpace(request.VenueCity) ? request.VenueCity : "Unknown";
+            venueId = await venueRepository.GetOrCreateAsync(venueName, venueCity);
         }
 
         var headliner = request.Acts.FirstOrDefault(a => a.IsHeadliner);
@@ -102,7 +103,8 @@ public class GigService(
             {
                 return Result.Fail<GetGigResponse>("Venue Name or Valid Venue ID is required.");
             }
-            venueId = await venueRepository.GetOrCreateAsync(venueName, request.VenueCity ?? "");
+            var venueCity = !string.IsNullOrWhiteSpace(request.VenueCity) ? request.VenueCity : "Unknown";
+            venueId = await venueRepository.GetOrCreateAsync(venueName, venueCity);
         }
 
         await UpdateGigDetails(gig, request, venueId);

@@ -241,6 +241,43 @@ public class GigControllerTests : IClassFixture<CustomWebApplicationFactory<Prog
         }
     }
 
+    [Fact]
+    public async Task Create_Upsert_CreatesNewVenue_WithDefaultCity()
+    {
+        await SeedData();
+    
+        var request = new UpsertGigRequest
+        {
+            VenueId = "new:New Venue Without City",
+            // No VenueCity
+            Date = DateOnly.FromDateTime(DateTime.Now),
+            TicketType = TicketType.Standing,
+            Acts = new List<GigArtistRequest>
+            {
+                new GigArtistRequest
+                {
+                    ArtistId = (await GetArtistIdByName("Metallica")).ToString(),
+                    IsHeadliner = true
+                }
+            }
+        };
+    
+        var response = await _client.PostAsJsonAsync("/api/gigs", request, _jsonOptions);
+        response.EnsureSuccessStatusCode();
+    
+        var result = await response.Content.ReadFromJsonAsync<GetGigResponse>(_jsonOptions);
+    
+        Assert.NotNull(result);
+        Assert.Equal("New Venue Without City", result.VenueName);
+        
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<Database>();
+            var newVenue = await db.Venue.FirstAsync(v => v.Name == "New Venue Without City");
+            Assert.Equal("Unknown", newVenue.City);
+        }
+    }
+
     private async Task<ArtistId> GetArtistIdByName(string name)
     {
         using (var scope = _factory.Services.CreateScope())
