@@ -6,7 +6,7 @@ namespace Gigs.Models;
 public class Festival
 {
     [Required]
-    public FestivalId Id { get; set; } = FestivalId.New();
+    public FestivalId Id { get; set; }
 
     [Required]
     public string Name { get; set; } = string.Empty;

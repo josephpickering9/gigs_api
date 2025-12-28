@@ -104,7 +104,6 @@ public class GigRepository(Database database)
 
     public async Task<Gig> UpdateAsync(Gig gig)
     {
-        database.Gig.Update(gig);
         await database.SaveChangesAsync();
         return gig;
     }

@@ -26,7 +26,6 @@ public class PersonRepository(Database database)
                 Slug = Guid.NewGuid().ToString(),
             };
             database.Person.Add(person);
-            await database.SaveChangesAsync();
         }
 
         return person.Id;

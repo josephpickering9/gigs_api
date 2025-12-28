@@ -41,7 +41,6 @@ public class VenueRepository(Database database)
                 Slug = Guid.NewGuid().ToString(),
             };
             database.Venue.Add(venue);
-            await database.SaveChangesAsync();
         }
 
         return venue.Id;

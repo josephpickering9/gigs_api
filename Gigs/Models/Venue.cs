@@ -6,7 +6,7 @@ namespace Gigs.Models;
 public class Venue
 {
     [Required]
-    public VenueId Id { get; set; } = VenueId.New();
+    public VenueId Id { get; set; }
 
     [Required]
     public string Name { get; set; } = null!;
