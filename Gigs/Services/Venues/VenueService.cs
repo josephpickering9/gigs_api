@@ -1,9 +1,9 @@
 using Gigs.DTOs;
-using Gigs.Types;
 using Gigs.Models;
 using Gigs.Repositories;
 using Gigs.Services.AI;
 using Gigs.Services.Image;
+using Gigs.Types;
 
 namespace Gigs.Services;
 
@@ -23,12 +23,11 @@ public class VenueService(
     {
         var venues = await repository.GetAllAsync();
         var venue = venues.FirstOrDefault(v => v.Id == id);
-                    
+
         if (venue == null)
         {
             return Result.NotFound<GetVenueResponse>($"Venue with ID {id} not found.");
         }
-
 
         var aiResult = await aiEnrichmentService.EnrichVenueImage(venue.Name, venue.City);
         var imageUrl = aiResult.IsSuccess ? aiResult.Data : null;
@@ -36,29 +35,23 @@ public class VenueService(
         if (string.IsNullOrWhiteSpace(imageUrl))
             return MapToDto(venue).ToSuccess();
 
-
-        try 
+        try
         {
             var client = httpClientFactory.CreateClient();
             var imageBytes = await client.GetByteArrayAsync(imageUrl);
 
-
-
             var fileExtension = Path.GetExtension(imageUrl).Split('?')[0];
-            if (string.IsNullOrWhiteSpace(fileExtension) || fileExtension.Length > 5) 
+            if (string.IsNullOrWhiteSpace(fileExtension) || fileExtension.Length > 5)
                 fileExtension = ".jpg";
 
             var fileName = $"{venue.Slug}-{Guid.NewGuid()}{fileExtension}";
             var savedFileName = await imageService.SaveImageAsync(fileName, imageBytes);
-
-
 
             venue.ImageUrl = savedFileName;
             await repository.UpdateAsync(venue);
         }
         catch (Exception)
         {
-
         }
 
         return MapToDto(venue).ToSuccess();
@@ -79,10 +72,9 @@ public class VenueService(
             }
             catch (Exception)
             {
-
             }
-
         }
+
         return count.ToSuccess();
     }
 

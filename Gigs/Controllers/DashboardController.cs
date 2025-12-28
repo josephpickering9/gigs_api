@@ -1,13 +1,13 @@
-using Microsoft.AspNetCore.Mvc;
 using Gigs.DTOs;
 using Gigs.Services;
 using Gigs.Types;
+using Microsoft.AspNetCore.Mvc;
 
 namespace Gigs.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-public class DashboardController(DashboardService dashboardService) : ControllerBase
+public class DashboardController(DashboardService dashboardService): ControllerBase
 {
     [HttpGet("stats")]
     public async Task<ActionResult<DashboardStatsResponse>> GetDashboardStats()

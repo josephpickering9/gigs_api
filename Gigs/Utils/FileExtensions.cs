@@ -6,7 +6,10 @@ public static class FileExtensions
 {
     public static async Task<byte[]> FileToByteArray(IFormFile? image)
     {
-        if (image is null) return Array.Empty<byte>();
+        if (image is null)
+        {
+            return Array.Empty<byte>();
+        }
 
         await using var imageStream = image.OpenReadStream();
         var buffer = new byte[image.Length];
@@ -32,6 +35,7 @@ public static class FileExtensions
         {
             contentType = "application/octet-stream";
         }
+
         return contentType;
     }
 

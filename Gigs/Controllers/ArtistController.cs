@@ -1,13 +1,13 @@
-using Microsoft.AspNetCore.Mvc;
-using Gigs.Services;
 using Gigs.DTOs;
+using Gigs.Services;
 using Gigs.Types;
+using Microsoft.AspNetCore.Mvc;
 
 namespace Gigs.Controllers;
 
 [ApiController]
 [Route("api/[controller]s")]
-public class ArtistController(ArtistService artistService) : ControllerBase
+public class ArtistController(ArtistService artistService): ControllerBase
 {
     [HttpGet]
     public async Task<ActionResult<List<GetArtistResponse>>> GetAll()

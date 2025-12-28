@@ -36,13 +36,13 @@ public class GigService(
         {
             return Result.NotFound<GetGigResponse>($"Gig with ID {id} not found.");
         }
+
         return MapToDto(gig).ToSuccess();
     }
 
     public async Task<Result<GetGigResponse>> CreateAsync(UpsertGigRequest request)
     {
         var venueId = await venueRepository.GetOrCreateAsync(request.VenueName!, request.VenueCity!);
-
 
         var headliner = request.Acts.FirstOrDefault(a => a.IsHeadliner);
         if (headliner != null)
@@ -90,10 +90,10 @@ public class GigService(
     private async Task UpdateGigDetails(Gig gig, UpsertGigRequest request, VenueId venueId)
     {
         gig.VenueId = venueId;
-        
+
         if (!string.IsNullOrWhiteSpace(request.FestivalName))
         {
-             gig.FestivalId = await festivalRepository.GetOrCreateAsync(request.FestivalName);
+            gig.FestivalId = await festivalRepository.GetOrCreateAsync(request.FestivalName);
         }
         else if (request.FestivalId.HasValue)
         {
@@ -113,15 +113,12 @@ public class GigService(
     private async Task ReconcileActs(Gig gig, List<GigArtistRequest> requestedActs)
     {
         var requestedArtistIds = requestedActs.Select(a => a.ArtistId).ToHashSet();
-        
 
         var actsToRemove = gig.Acts.Where(a => !requestedArtistIds.Contains(a.ArtistId)).ToList();
         foreach (var act in actsToRemove)
         {
             gig.Acts.Remove(act);
         }
-
-
 
         foreach (var actRequest in requestedActs)
         {
@@ -159,16 +156,12 @@ public class GigService(
         }
 
         var requestedAttendeeIds = requestedPersonIds.ToHashSet();
-        
-
 
         var attendeesToRemove = gig.Attendees.Where(a => !requestedAttendeeIds.Contains(a.PersonId)).ToList();
         foreach (var attendee in attendeesToRemove)
         {
             gig.Attendees.Remove(attendee);
         }
-
-
 
         foreach (var personId in requestedPersonIds)
         {
@@ -276,6 +269,7 @@ public class GigService(
                 // Continue with next
             }
         }
+
         return count.ToSuccess();
     }
 
@@ -286,10 +280,10 @@ public class GigService(
         {
             return Result.NotFound<bool>($"Gig with ID {id} not found.");
         }
+
         await repository.DeleteAsync(id);
         return true.ToSuccess();
     }
-
 
     private static GetGigResponse MapToDto(Gig gig)
     {

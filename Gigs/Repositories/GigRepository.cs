@@ -1,9 +1,9 @@
+using Gigs.DTOs;
 using Microsoft.EntityFrameworkCore;
 using Gigs.Exceptions;
 using Gigs.Models;
 using Gigs.Services;
 using Gigs.Types;
-using Gigs.DTOs;
 
 namespace Gigs.Repositories;
 
@@ -54,8 +54,7 @@ public class GigRepository(Database database)
             var searchTerm = filter.Search.ToLower();
             query = query.Where(g =>
                 (g.Venue != null && g.Venue.Name.ToLower().Contains(searchTerm)) ||
-                g.Acts.Any(a => a.Artist != null && a.Artist.Name.ToLower().Contains(searchTerm))
-            );
+                g.Acts.Any(a => a.Artist != null && a.Artist.Name.ToLower().Contains(searchTerm)));
         }
 
         if (filter.AttendeeId.HasValue)
@@ -129,7 +128,6 @@ public class GigRepository(Database database)
 
         return allGigs.Where(gig =>
             gig.Acts.Count <= 1 ||
-            gig.Acts.Any(a => a.IsHeadliner && !a.Songs.Any())
-        ).ToList();
+            gig.Acts.Any(a => a.IsHeadliner && !a.Songs.Any())).ToList();
     }
 }

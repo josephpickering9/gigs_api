@@ -3,9 +3,9 @@ using CsvHelper;
 using CsvHelper.Configuration;
 using CsvHelper.Configuration.Attributes;
 using Gigs.DTOs;
+using Gigs.Models;
 using Gigs.Repositories;
 using Gigs.Types;
-using Gigs.Models;
 
 namespace Gigs.Services;
 
@@ -41,7 +41,6 @@ public class CsvImportService(ArtistRepository artistRepository, GigService gigS
                 catch (Exception ex)
                 {
                     Console.WriteLine($"Error processing record {record.Headliner} @ {record.Venue}: {ex.Message}");
-
                 }
             }
 
@@ -57,11 +56,10 @@ public class CsvImportService(ArtistRepository artistRepository, GigService gigS
     {
         if (string.IsNullOrWhiteSpace(record.Venue) || string.IsNullOrWhiteSpace(record.City))
         {
-             return;
+            return;
         }
 
         var actsRequest = new List<GigArtistRequest>();
-
 
         var headlinerId = await artistRepository.GetOrCreateAsync(record.Headliner!);
         actsRequest.Add(new GigArtistRequest
@@ -71,7 +69,6 @@ public class CsvImportService(ArtistRepository artistRepository, GigService gigS
             Order = 0,
             SetlistUrl = record.SetlistUrl
         });
-
 
         if (!string.IsNullOrWhiteSpace(record.SupportActs))
         {
@@ -88,7 +85,6 @@ public class CsvImportService(ArtistRepository artistRepository, GigService gigS
                 });
             }
         }
-
 
         var attendees = new List<string>();
         if (!string.IsNullOrWhiteSpace(record.WentWith))
@@ -121,11 +117,12 @@ public class CsvImportService(ArtistRepository artistRepository, GigService gigS
     private decimal? ParseCurrency(string? cost)
     {
         if (string.IsNullOrWhiteSpace(cost)) return null;
-        var clean = cost.Replace("£", "").Replace("$", "").Trim();
+        var clean = cost.Replace("£", string.Empty).Replace("$", string.Empty).Trim();
         if (decimal.TryParse(clean, NumberStyles.Any, CultureInfo.InvariantCulture, out var val))
         {
             return val;
         }
+
         return null;
     }
 
@@ -136,6 +133,7 @@ public class CsvImportService(ArtistRepository artistRepository, GigService gigS
         {
             return result;
         }
+
         return TicketType.Other;
     }
 

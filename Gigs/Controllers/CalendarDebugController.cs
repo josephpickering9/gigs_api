@@ -18,15 +18,16 @@ public class CalendarDebugController : ControllerBase
     }
 
     /// <summary>
-    /// Debug endpoint to see what locations are in calendar events vs what venues exist
+    /// Debug endpoint to see what locations are in calendar events vs what venues exist.
     /// </summary>
+    /// <returns><placeholder>A <see cref="Task"/> representing the asynchronous operation.</placeholder></returns>
     [HttpGet("debug")]
     public async Task<IActionResult> Debug([FromQuery] DateTime? startDate = null, [FromQuery] DateTime? endDate = null)
     {
         var result = await _calendarService.GetCalendarEventsAsync(startDate, endDate);
         var events = result.IsSuccess && result.Data != null ? result.Data : new List<Gigs.DTOs.CalendarEventDto>();
         var venues = await _db.Venue.Select(v => new { v.Name, v.City }).ToListAsync();
-        
+
         var eventLocations = events
             .Where(e => !string.IsNullOrWhiteSpace(e.Location))
             .Select(e => e.Location)
@@ -46,4 +47,3 @@ public class CalendarDebugController : ControllerBase
         });
     }
 }
-

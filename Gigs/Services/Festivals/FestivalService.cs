@@ -17,7 +17,7 @@ public class FestivalService(FestivalRepository repository, GigService gigServic
     public async Task<Result<FestivalDto>> GetByIdAsync(FestivalId id)
     {
         var festival = await repository.GetByIdAsync(id);
-        if (festival == null) 
+        if (festival == null)
         {
             return Result.NotFound<FestivalDto>($"Festival with ID {id} not found.");
         }
@@ -36,7 +36,7 @@ public class FestivalService(FestivalRepository repository, GigService gigServic
         }
         else
         {
-            dto.Gigs = [];
+            dto.Gigs =[];
         }
 
         return dto.ToSuccess();
@@ -79,8 +79,9 @@ public class FestivalService(FestivalRepository repository, GigService gigServic
         var festival = await repository.GetByIdAsync(id);
         if (festival == null)
         {
-             return Result.NotFound<bool>($"Festival with ID {id} not found.");
+            return Result.NotFound<bool>($"Festival with ID {id} not found.");
         }
+
         await repository.DeleteAsync(id);
         return true.ToSuccess();
     }

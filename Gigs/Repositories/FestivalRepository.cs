@@ -59,7 +59,7 @@ public class FestivalRepository(Database database)
             festival = new Festival
             {
                 Name = name,
-                Slug = Guid.NewGuid().ToString()
+                Slug = Guid.NewGuid().ToString(),
             };
             database.Festival.Add(festival);
             await database.SaveChangesAsync();

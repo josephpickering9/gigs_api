@@ -1,11 +1,11 @@
 using System.Text.RegularExpressions;
+using Gigs.DTOs;
+using Gigs.Models;
+using Gigs.Types;
 using Google.Apis.Auth.OAuth2;
 using Google.Apis.Calendar.v3;
 using Google.Apis.Calendar.v3.Data;
 using Google.Apis.Services;
-using Gigs.DTOs;
-using Gigs.Models;
-using Gigs.Types;
 using Microsoft.EntityFrameworkCore;
 
 namespace Gigs.Services.Calendar;
@@ -29,7 +29,6 @@ public class GoogleCalendarService : IDisposable
 
         var credentialsJson = _configuration["GoogleCalendar:CredentialsJson"];
         var credentialsFile = _configuration["GoogleCalendar:CredentialsFile"];
-
 
         if (string.IsNullOrWhiteSpace(credentialsJson))
         {
@@ -85,7 +84,7 @@ public class GoogleCalendarService : IDisposable
             var events = await request.ExecuteAsync();
             var eventDtos = new List<CalendarEventDto>();
 
-            foreach (var calendarEvent in events.Items ?? [])
+            foreach (var calendarEvent in events.Items ??[])
             {
                 if (calendarEvent.Start?.DateTimeDateTimeOffset == null && calendarEvent.Start?.Date == null)
                     continue;
@@ -120,7 +119,7 @@ public class GoogleCalendarService : IDisposable
             {
                 return Result.Fail<ImportCalendarEventsResponse>(eventsResult.Error?.Message ?? "Failed to fetch events");
             }
-            
+
             var events = eventsResult.Data!;
 
             int created = 0;
@@ -136,7 +135,6 @@ public class GoogleCalendarService : IDisposable
                     if (result.HasValue)
                     {
                         await _db.SaveChangesAsync();
-
 
                         if (result.Value)
                             created++;
@@ -177,7 +175,6 @@ public class GoogleCalendarService : IDisposable
     {
         var gigInfo = await ParseCalendarEvent(calendarEvent);
 
-
         if (gigInfo == null)
         {
             return null;
@@ -198,9 +195,7 @@ public class GoogleCalendarService : IDisposable
                 Slug = Guid.NewGuid().ToString()
             };
             _db.Gig.Add(existingGig);
-            
         }
-
 
         // Update gig details
         if (gigInfo.TicketCost.HasValue)
@@ -236,7 +231,6 @@ public class GoogleCalendarService : IDisposable
             };
             _db.GigArtist.Add(headlinerGigArtist);
 
-
             int order = 1;
             foreach (var supportName in gigInfo.SupportActs)
             {
@@ -264,30 +258,29 @@ public class GoogleCalendarService : IDisposable
 
         Venue? venue = null;
         Artist? matchedArtist = null;
-        
+
         if (!string.IsNullOrWhiteSpace(title))
         {
             matchedArtist = await _db.Artist.FirstOrDefaultAsync(a => a.Name.ToLower() == title.ToLower());
 
-            
             if (matchedArtist == null)
             {
                 var cleanedTitle = title
 
-                    .Replace(" (Live)", "", StringComparison.OrdinalIgnoreCase)
-                    .Replace(" - Live", "", StringComparison.OrdinalIgnoreCase)
+                    .Replace(" (Live)", string.Empty, StringComparison.OrdinalIgnoreCase)
+                    .Replace(" - Live", string.Empty, StringComparison.OrdinalIgnoreCase)
                     .Trim();
-                    
+
                 matchedArtist = await _db.Artist.FirstOrDefaultAsync(a => a.Name.ToLower() == cleanedTitle.ToLower());
             }
-            
+
             if (matchedArtist == null && title.Contains(" @ "))
             {
                 var artistPart = title.Split(" @ ")[0].Trim();
                 matchedArtist = await _db.Artist.FirstOrDefaultAsync(a => a.Name.ToLower() == artistPart.ToLower());
             }
         }
-        
+
         if (!string.IsNullOrWhiteSpace(location))
         {
             var locationParts = location.Split(',').Select(p => p.Trim()).ToArray();
@@ -302,7 +295,7 @@ public class GoogleCalendarService : IDisposable
                 if (venue == null && locationParts.Length > 1)
                 {
                     var city = locationParts[^1];
-                    venue = await _db.Venue.FirstOrDefaultAsync(v => 
+                    venue = await _db.Venue.FirstOrDefaultAsync(v =>
                         v.Name.ToLower() == venueName.ToLower() && v.City.ToLower() == city.ToLower());
                 }
             }
@@ -312,15 +305,14 @@ public class GoogleCalendarService : IDisposable
         {
             return null;
         }
-        
+
         if (matchedArtist != null && venue == null)
         {
             return null;
         }
 
-
         var artistName = title;
-        
+
         if (title.Contains(" @ "))
         {
             artistName = title.Split(" @ ")[0].Trim();
@@ -329,13 +321,13 @@ public class GoogleCalendarService : IDisposable
         {
             artistName = title.Split(" at ")[0].Trim();
         }
-        
+
         if (string.IsNullOrWhiteSpace(artistName))
         {
             artistName = title;
         }
 
-        List<string> supportActs = new();
+        List<string> supportActs = new ();
         decimal? ticketCost = null;
 
         if (!string.IsNullOrWhiteSpace(description))
@@ -346,7 +338,7 @@ public class GoogleCalendarService : IDisposable
                 var supports = supportMatch.Groups[1].Value.Split(new[] { ',', '&', '/' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
                 supportActs.AddRange(supports);
             }
-            
+
             var costMatch = Regex.Match(description, @"[£$]\s*(\d+(?:\.\d{2})?)", RegexOptions.IgnoreCase);
             if (costMatch.Success && decimal.TryParse(costMatch.Groups[1].Value, out var cost))
             {
@@ -381,6 +373,7 @@ public class GoogleCalendarService : IDisposable
             };
             _db.Artist.Add(artist);
         }
+
         return artist;
     }
 
@@ -389,7 +382,7 @@ public class GoogleCalendarService : IDisposable
         public string ArtistName { get; set; } = null!;
         public Venue Venue { get; set; } = null!;
         public DateOnly Date { get; set; }
-        public List<string> SupportActs { get; set; } = new();
+        public List<string> SupportActs { get; set; } = new ();
         public decimal? TicketCost { get; set; }
     }
 

@@ -1,8 +1,8 @@
-﻿using Microsoft.AspNetCore.StaticFiles;
-using Microsoft.Extensions.Configuration;
-using TinifyAPI;
 using Gigs.Types;
 using Gigs.Utils;
+using Microsoft.AspNetCore.StaticFiles;
+using Microsoft.Extensions.Configuration;
+using TinifyAPI;
 
 namespace Gigs.Services.Image;
 
@@ -65,9 +65,8 @@ public class ImageService
 
     public async Task<string> SaveImageAsync(string fileName, byte[] data)
     {
-
         var imageToSave = data;
-        
+
         if (!string.IsNullOrWhiteSpace(_tinifyApiKey))
         {
             var optimizationResult = await OptimiseImageAsync(data);
@@ -89,7 +88,7 @@ public class ImageService
 
         var filePath = Path.Combine(uploadDir, fileName);
         await File.WriteAllBytesAsync(filePath, imageToSave);
-        
+
         return fileName;
     }
 }

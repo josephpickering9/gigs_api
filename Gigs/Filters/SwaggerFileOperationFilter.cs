@@ -15,19 +15,19 @@ public class SwaggerFileOperationFilter : IOperationFilter
                         || p.ParameterType == typeof(List<IFormFile>));
 
         var parameterInfos = formParameters.ToList();
-        if (!parameterInfos.Any())
-            return;
+        if (!parameterInfos.Any()) return;
 
         operation.RequestBody.Content.Clear();
         var schema = new OpenApiSchema();
 
         foreach (var p in parameterInfos)
+        {
             if (p.ParameterType == typeof(IFormFile))
             {
                 schema.Properties.Add(p.Name, new OpenApiSchema
                 {
                     Type = "string",
-                    Format = "binary"
+                    Format = "binary",
                 });
             }
             else if (p.ParameterType == typeof(IFormCollection) || p.ParameterType == typeof(List<IFormFile>))
@@ -38,8 +38,8 @@ public class SwaggerFileOperationFilter : IOperationFilter
                     Items = new OpenApiSchema
                     {
                         Type = "string",
-                        Format = "binary"
-                    }
+                        Format = "binary",
+                    },
                 });
             }
             else
@@ -47,10 +47,11 @@ public class SwaggerFileOperationFilter : IOperationFilter
                 var reference = context.SchemaGenerator.GenerateSchema(p.ParameterType, context.SchemaRepository);
                 schema.Properties.Add(p.Name, reference);
             }
+        }
 
         operation.RequestBody.Content.Add("multipart/form-data", new OpenApiMediaType
         {
-            Schema = schema
+            Schema = schema,
         });
     }
 }

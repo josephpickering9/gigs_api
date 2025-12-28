@@ -4,15 +4,14 @@ using Google.Cloud.AIPlatform.V1;
 using Google.Protobuf.WellKnownTypes;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
-using Gigs.Types;
 using Value = Google.Protobuf.WellKnownTypes.Value;
 
 namespace Gigs.Services.AI;
 
 public class AiEnrichmentResult
 {
-    public List<string> SupportActs { get; set; } = [];
-    public List<string> Setlist { get; set; } = [];
+    public List<string> SupportActs { get; set; } =[];
+    public List<string> Setlist { get; set; } =[];
     public string? ImageSearchQuery { get; set; }
 }
 
@@ -71,7 +70,7 @@ public class AiEnrichmentService
     public virtual async Task<Result<AiEnrichmentResult>> EnrichGig(Gig gig)
     {
         var endpoint = EndpointName.FormatProjectLocationPublisherModel(_projectId, _location, _publisher, _model);
-        
+
         var prompt = $@"
 You are a music historian helper.
 I have a gig with the following details:
@@ -131,15 +130,13 @@ Output strictly in JSON format:
             var firstBrace = responseText.IndexOf('{');
             var lastBrace = responseText.LastIndexOf('}');
 
-
             if (firstBrace >= 0 && lastBrace > firstBrace)
             {
                 responseText = responseText.Substring(firstBrace, lastBrace - firstBrace + 1);
             }
             else
             {
-                responseText = responseText.Replace("```json", "").Replace("```", "").Trim();
-
+                responseText = responseText.Replace("```json", string.Empty).Replace("```", string.Empty).Trim();
             }
 
             var options = new JsonSerializerOptions
@@ -155,12 +152,12 @@ Output strictly in JSON format:
         catch (Grpc.Core.RpcException ex) when (ex.Status.StatusCode == Grpc.Core.StatusCode.Unauthenticated || ex.Message.Contains("invalid_grant"))
         {
             _logger.LogError(ex, "Vertex AI Authentication failed. Please run 'gcloud auth application-default login' to refresh your credentials.");
-             return Result.Fail<AiEnrichmentResult>("Vertex AI Authentication failed.");
+            return Result.Fail<AiEnrichmentResult>("Vertex AI Authentication failed.");
         }
         catch (JsonException ex)
         {
-             _logger.LogError(ex, "Failed to parse AI response. Raw Text: {RawResponse}", responseText);
-              return Result.Fail<AiEnrichmentResult>($"Failed to parse AI response: {ex.Message}");
+            _logger.LogError(ex, "Failed to parse AI response. Raw Text: {RawResponse}", responseText);
+            return Result.Fail<AiEnrichmentResult>($"Failed to parse AI response: {ex.Message}");
         }
         catch (Exception ex)
         {
@@ -217,7 +214,7 @@ If you absolutely cannot find one, return 'null'.
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error fetching artist image for {ArtistName}", artistName);
-             return Result.Fail<string>($"Error fetching artist image: {ex.Message}");
+            return Result.Fail<string>($"Error fetching artist image: {ex.Message}");
         }
     }
 
@@ -262,14 +259,14 @@ If you absolutely cannot find one, return 'null'.
             var url = response.Candidates.FirstOrDefault()?.Content?.Parts.FirstOrDefault()?.Text?.Trim();
 
             if (string.IsNullOrWhiteSpace(url) || url.Equals("null", StringComparison.OrdinalIgnoreCase))
-                  return Result.NotFound<string>("Image not found.");
+                return Result.NotFound<string>("Image not found.");
 
             return url.ToSuccess();
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error fetching venue image for {VenueName} in {City}", venueName, city);
-              return Result.Fail<string>($"Error fetching venue image: {ex.Message}");
+            return Result.Fail<string>($"Error fetching venue image: {ex.Message}");
         }
     }
 }

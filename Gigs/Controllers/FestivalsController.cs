@@ -7,7 +7,7 @@ namespace Gigs.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-public class FestivalsController(FestivalService service) : ControllerBase
+public class FestivalsController(FestivalService service): ControllerBase
 {
     [HttpGet]
     public async Task<ActionResult<List<FestivalDto>>> GetAll()
@@ -31,6 +31,7 @@ public class FestivalsController(FestivalService service) : ControllerBase
         {
             return CreatedAtAction(nameof(GetById), new { id = result.Data.Id }, result.Data);
         }
+
         return result.ToResponse();
     }
 

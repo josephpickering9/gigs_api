@@ -1,4 +1,4 @@
-﻿using Gigs.Types;
+using Gigs.Types;
 
 namespace Gigs.Utils;
 

@@ -1,13 +1,13 @@
-using Microsoft.AspNetCore.Mvc;
 using Gigs.DTOs;
 using Gigs.Services;
 using Gigs.Types;
+using Microsoft.AspNetCore.Mvc;
 
 namespace Gigs.Controllers;
 
 [ApiController]
-[Route("api/[controller]s")] // api/gigs
-public class GigController(GigService gigService) : ControllerBase
+[Route("api/[controller]s")]
+public class GigController(GigService gigService): ControllerBase
 {
     [HttpGet]
     public async Task<ActionResult<PaginatedResponse<GetGigResponse>>> GetAll([FromQuery] GetGigsFilter filter)
@@ -31,6 +31,7 @@ public class GigController(GigService gigService) : ControllerBase
         {
             return CreatedAtAction(nameof(GetById), new { id = result.Data.Id }, result.Data);
         }
+
         return result.ToResponse();
     }
 

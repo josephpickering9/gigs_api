@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Gigs.DTOs;
 using Gigs.Services;
+using Microsoft.EntityFrameworkCore;
 
 namespace Gigs.Repositories;
 
@@ -18,7 +19,7 @@ public class DashboardRepository(Database database)
             .Select(g => new TopArtistStats
             {
                 ArtistName = g.Key.Name,
-                GigCount = g.Count()
+                GigCount = g.Count(),
             })
             .OrderByDescending(x => x.GigCount)
             .FirstOrDefaultAsync();
@@ -31,7 +32,7 @@ public class DashboardRepository(Database database)
             .Select(g => new TopVenueStats
             {
                 VenueName = g.Key.Name,
-                GigCount = g.Count() // Count of unique venue-date pairs
+                GigCount = g.Count(), // Count of unique venue-date pairs
             })
             .OrderByDescending(x => x.GigCount)
             .FirstOrDefaultAsync();
@@ -44,7 +45,7 @@ public class DashboardRepository(Database database)
             .Select(g => new TopCityStats
             {
                 CityName = g.Key.City,
-                GigCount = g.Count() // Count of unique city-date pairs
+                GigCount = g.Count(), // Count of unique city-date pairs
             })
             .OrderByDescending(x => x.GigCount)
             .FirstOrDefaultAsync();
@@ -55,7 +56,7 @@ public class DashboardRepository(Database database)
             .Select(g => new TopAttendeeStats
             {
                 PersonName = g.Key.Name,
-                GigCount = g.Count()
+                GigCount = g.Count(),
             })
             .OrderByDescending(x => x.GigCount)
             .FirstOrDefaultAsync();
@@ -66,7 +67,7 @@ public class DashboardRepository(Database database)
             TopArtist = topArtist,
             TopVenue = topVenue,
             TopCity = topCity,
-            TopAttendee = topAttendee
+            TopAttendee = topAttendee,
         };
     }
 
@@ -78,7 +79,7 @@ public class DashboardRepository(Database database)
             .Select(g => new AverageTicketPriceByYearResponse
             {
                 Year = g.Key,
-                AveragePrice = g.Average(x => x.TicketCost!.Value)
+                AveragePrice = g.Average(x => x.TicketCost!.Value),
             })
             .OrderBy(x => x.Year)
             .ToListAsync();
@@ -91,7 +92,7 @@ public class DashboardRepository(Database database)
             .Select(g => new GigsPerYearResponse
             {
                 Year = g.Key,
-                GigCount = g.Count()
+                GigCount = g.Count(),
             })
             .OrderBy(x => x.Year)
             .ToListAsync();
@@ -99,8 +100,11 @@ public class DashboardRepository(Database database)
 
     public async Task<List<GigsPerMonthResponse>> GetGigsPerMonthAsync()
     {
-        var monthNames = new[] { "", "January", "February", "March", "April", "May", "June",
-                                "July", "August", "September", "October", "November", "December" };
+        var monthNames = new[]
+        {
+            string.Empty, "January", "February", "March", "April", "May", "June",
+            "July", "August", "September", "October", "November", "December",
+        };
 
         return await database.Gig
             .GroupBy(g => g.Date.Month)
@@ -108,7 +112,7 @@ public class DashboardRepository(Database database)
             {
                 Month = g.Key,
                 MonthName = monthNames[g.Key],
-                GigCount = g.Count()
+                GigCount = g.Count(),
             })
             .OrderBy(x => x.Month)
             .ToListAsync();
@@ -137,7 +141,7 @@ public class DashboardRepository(Database database)
         {
             BusiestYear = busiestYear?.Year,
             BusiestYearGigCount = busiestYear?.Count,
-            DaysSinceLastGig = daysSinceLastGig
+            DaysSinceLastGig = daysSinceLastGig,
         };
     }
 
@@ -153,7 +157,7 @@ public class DashboardRepository(Database database)
         return new ArtistInsightsResponse
         {
             TotalUniqueArtists = totalUniqueArtists,
-            TotalArtistAppearances = totalAppearances
+            TotalArtistAppearances = totalAppearances,
         };
     }
 
@@ -168,7 +172,7 @@ public class DashboardRepository(Database database)
                 ArtistName = g.Key.Name,
                 TotalAppearances = g.Count(),
                 AsHeadliner = g.Count(x => x.IsHeadliner),
-                AsSupport = g.Count(x => !x.IsHeadliner)
+                AsSupport = g.Count(x => !x.IsHeadliner),
             })
             .OrderByDescending(x => x.TotalAppearances)
             .Take(limit)
@@ -191,7 +195,7 @@ public class DashboardRepository(Database database)
         return new VenueInsightsResponse
         {
             TotalUniqueVenues = totalUniqueVenues,
-            TotalUniqueCities = totalUniqueCities
+            TotalUniqueCities = totalUniqueCities,
         };
     }
 
@@ -207,7 +211,7 @@ public class DashboardRepository(Database database)
                 VenueId = g.Key.VenueId.ToString(),
                 VenueName = g.Key.Name,
                 City = g.Key.City,
-                GigCount = g.Count()
+                GigCount = g.Count(),
             })
             .OrderByDescending(x => x.GigCount)
             .Take(limit)
@@ -225,7 +229,7 @@ public class DashboardRepository(Database database)
             {
                 City = g.Key,
                 GigCount = g.Count(),
-                UniqueVenues = g.Select(x => x.VenueId).Distinct().Count()
+                UniqueVenues = g.Select(x => x.VenueId).Distinct().Count(),
             })
             .OrderByDescending(x => x.GigCount)
             .Take(limit)
@@ -249,7 +253,7 @@ public class DashboardRepository(Database database)
                 ArtistName = ga.Artist.Name,
                 VenueName = ga.Gig.Venue.Name,
                 Date = ga.Gig.Date,
-                SongCount = ga.Songs.Count
+                SongCount = ga.Songs.Count,
             })
             .FirstOrDefaultAsync();
 
@@ -297,7 +301,7 @@ public class DashboardRepository(Database database)
         {
             LongestSetlist = longestSetlist,
             LongestGigStreak = longestStreak > 0 ? longestStreak : null,
-            AverageGigsPerYear = Math.Round(avgGigsPerYear, 1)
+            AverageGigsPerYear = Math.Round(avgGigsPerYear, 1),
         };
     }
 
@@ -312,7 +316,7 @@ public class DashboardRepository(Database database)
                 SongId = g.Key.SongId.ToString(),
                 SongTitle = g.Key.Title,
                 ArtistName = g.Key.Name,
-                TimesHeard = g.Count()
+                TimesHeard = g.Count(),
             })
             .OrderByDescending(x => x.TimesHeard)
             .Take(limit)
@@ -333,7 +337,7 @@ public class DashboardRepository(Database database)
         return new AttendeeInsightsResponse
         {
             TotalUniqueAttendees = totalUniqueAttendees,
-            TotalGigsWithAttendees = totalGigsWithAttendees
+            TotalGigsWithAttendees = totalGigsWithAttendees,
         };
     }
 
@@ -346,7 +350,7 @@ public class DashboardRepository(Database database)
             {
                 PersonId = g.Key.PersonId.ToString(),
                 PersonName = g.Key.Name,
-                GigCount = g.Count()
+                GigCount = g.Count(),
             })
             .OrderByDescending(x => x.GigCount)
             .Take(limit)

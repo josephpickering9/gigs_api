@@ -13,55 +13,56 @@ public interface IId
 }
 
 [TypeConverter(typeof(GuidIdTypeConverter<GigId>))]
-public readonly record struct GigId(Guid Value) : IId
+public readonly record struct GigId(Guid Value): IId
 {
-    public override string ToString() => Value.ToString();
-    public static GigId New() => new(Guid.NewGuid());
+    public override string ToString() => this.Value.ToString();
+    public static GigId New() => new (Guid.NewGuid());
 }
 
 [TypeConverter(typeof(GuidIdTypeConverter<ArtistId>))]
-public readonly record struct ArtistId(Guid Value) : IId
+public readonly record struct ArtistId(Guid Value): IId
 {
-    public override string ToString() => Value.ToString();
-    public static ArtistId New() => new(Guid.NewGuid());
+    public override string ToString() => this.Value.ToString();
+    public static ArtistId New() => new (Guid.NewGuid());
 }
 
 [TypeConverter(typeof(GuidIdTypeConverter<VenueId>))]
-public readonly record struct VenueId(Guid Value) : IId
+public readonly record struct VenueId(Guid Value): IId
 {
-    public override string ToString() => Value.ToString();
-    public static VenueId New() => new(Guid.NewGuid());
+    public override string ToString() => this.Value.ToString();
+    public static VenueId New() => new (Guid.NewGuid());
 }
 
 [TypeConverter(typeof(GuidIdTypeConverter<PersonId>))]
-public readonly record struct PersonId(Guid Value) : IId
+public readonly record struct PersonId(Guid Value): IId
 {
-    public override string ToString() => Value.ToString();
-    public static PersonId New() => new(Guid.NewGuid());
+    public override string ToString() => this.Value.ToString();
+    public static PersonId New() => new (Guid.NewGuid());
 }
 
 [TypeConverter(typeof(GuidIdTypeConverter<GigArtistId>))]
-public readonly record struct GigArtistId(Guid Value) : IId
+public readonly record struct GigArtistId(Guid Value): IId
 {
-    public override string ToString() => Value.ToString();
-    public static GigArtistId New() => new(Guid.NewGuid());
+    public override string ToString() => this.Value.ToString();
+    public static GigArtistId New() => new (Guid.NewGuid());
 }
 
 [TypeConverter(typeof(GuidIdTypeConverter<SongId>))]
-public readonly record struct SongId(Guid Value) : IId
+public readonly record struct SongId(Guid Value): IId
 {
-    public override string ToString() => Value.ToString();
-    public static SongId New() => new(Guid.NewGuid());
+    public override string ToString() => this.Value.ToString();
+    public static SongId New() => new (Guid.NewGuid());
 }
 
 [TypeConverter(typeof(GuidIdTypeConverter<FestivalId>))]
-public readonly record struct FestivalId(Guid Value) : IId
+public readonly record struct FestivalId(Guid Value): IId
 {
-    public override string ToString() => Value.ToString();
-    public static FestivalId New() => new(Guid.NewGuid());
+    public override string ToString() => this.Value.ToString();
+    public static FestivalId New() => new (Guid.NewGuid());
 }
 
-public class GuidIdTypeConverter<TId> : TypeConverter where TId : struct, IId
+public class GuidIdTypeConverter<TId> : TypeConverter
+    where TId : struct, IId
 {
     public override bool CanConvertFrom(ITypeDescriptorContext? context, Type sourceType) =>
         sourceType == typeof(string) || base.CanConvertFrom(context, sourceType);
@@ -79,8 +80,10 @@ public class GuidIdTypeConverter<TId> : TypeConverter where TId : struct, IId
 
 public static class IdFactory
 {
-    public static TId Create<TId>(Guid value) where TId : struct, IId =>
-        (TId)Activator.CreateInstance(typeof(TId), value)!;
+    public static TId Create<TId>(Guid value)
+        where TId : struct, IId
+        =>
+        (TId)Activator.CreateInstance(typeof(TId), value) !;
 }
 
 public class IdJsonConverterFactory : JsonConverterFactory
@@ -90,10 +93,11 @@ public class IdJsonConverterFactory : JsonConverterFactory
     public override JsonConverter CreateConverter(Type typeToConvert, JsonSerializerOptions options)
     {
         var converterType = typeof(IdJsonConverter<>).MakeGenericType(typeToConvert);
-        return (JsonConverter)Activator.CreateInstance(converterType)!;
+        return (JsonConverter)Activator.CreateInstance(converterType) !;
     }
 
-    private class IdJsonConverter<TId> : JsonConverter<TId> where TId : struct, IId
+    private class IdJsonConverter<TId> : JsonConverter<TId>
+        where TId : struct, IId
     {
         public override TId Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
         {
@@ -114,7 +118,8 @@ public class IdJsonConverterFactory : JsonConverterFactory
 
 public static class IdPropertyBuilderExtensions
 {
-    public static PropertyBuilder<TId> HasGuidIdConversion<TId>(this PropertyBuilder<TId> builder) where TId : struct, IId
+    public static PropertyBuilder<TId> HasGuidIdConversion<TId>(this PropertyBuilder<TId> builder)
+        where TId : struct, IId
     {
         var converter = new ValueConverter<TId, Guid>(
             id => id.Value,
@@ -131,7 +136,8 @@ public static class IdPropertyBuilderExtensions
         return builder;
     }
 
-    public static PropertyBuilder<TId?> HasNullableGuidIdConversion<TId>(this PropertyBuilder<TId?> builder) where TId : struct, IId
+    public static PropertyBuilder<TId?> HasNullableGuidIdConversion<TId>(this PropertyBuilder<TId?> builder)
+        where TId : struct, IId
     {
         var converter = new ValueConverter<TId?, Guid?>(
             id => id.HasValue ? id.Value.Value : (Guid?)null,

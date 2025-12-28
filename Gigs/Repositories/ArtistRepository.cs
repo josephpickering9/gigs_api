@@ -1,7 +1,8 @@
 using Microsoft.EntityFrameworkCore;
 using Gigs.Models;
-using Gigs.Types;
 using Gigs.Services;
+using Gigs.Types;
+using Microsoft.EntityFrameworkCore;
 
 namespace Gigs.Repositories;
 
@@ -31,7 +32,7 @@ public class ArtistRepository(Database database)
             artist = new Artist
             {
                 Name = name,
-                Slug = Guid.NewGuid().ToString()
+                Slug = Guid.NewGuid().ToString(),
             };
             database.Artist.Add(artist);
             await database.SaveChangesAsync();

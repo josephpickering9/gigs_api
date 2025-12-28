@@ -1,10 +1,10 @@
 using Gigs.DTOs;
-using Gigs.Types;
 using Gigs.Models;
 using Gigs.Repositories;
 using Gigs.Services.AI;
 using Gigs.Services.External;
 using Gigs.Services.Image;
+using Gigs.Types;
 
 namespace Gigs.Services;
 
@@ -25,28 +25,23 @@ public class ArtistService(
     {
         var artists = await repository.GetAllAsync();
         var artist = artists.FirstOrDefault(a => a.Id == id);
-                     
+
         if (artist == null)
         {
             return Result.NotFound<GetArtistResponse>($"Artist with ID {id} not found.");
         }
 
-
         var spotifyResult = await spotifyService.GetArtistImageAsync(artist.Name);
         var imageUrl = spotifyResult.IsSuccess ? spotifyResult.Data : null;
 
-
-
         if (string.IsNullOrWhiteSpace(imageUrl))
         {
-             var aiResult = await aiEnrichmentService.EnrichArtistImage(artist.Name);
-             imageUrl = aiResult.IsSuccess ? aiResult.Data : null;
+            var aiResult = await aiEnrichmentService.EnrichArtistImage(artist.Name);
+            imageUrl = aiResult.IsSuccess ? aiResult.Data : null;
         }
 
         if (string.IsNullOrWhiteSpace(imageUrl))
             return MapToDto(artist).ToSuccess();
-
-
 
         try
         {
@@ -66,11 +61,7 @@ public class ArtistService(
 
             var imageBytes = await response.Content.ReadAsByteArrayAsync();
 
-
-
             var fileExtension = Path.GetExtension(imageUrl).Split('?')[0];
-
-
 
             if (string.IsNullOrWhiteSpace(fileExtension) || fileExtension.Length > 5)
             {
@@ -87,13 +78,10 @@ public class ArtistService(
             var fileName = $"{artist.Slug}-{Guid.NewGuid()}{fileExtension}";
             var savedFileName = await imageService.SaveImageAsync(fileName, imageBytes);
 
-
-
             artist.ImageUrl = savedFileName;
             await repository.UpdateAsync(artist);
         }
         catch (Exception)
-
         {
         }
 

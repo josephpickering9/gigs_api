@@ -1,7 +1,8 @@
 using Microsoft.EntityFrameworkCore;
 using Gigs.Models;
-using Gigs.Types;
 using Gigs.Services;
+using Gigs.Types;
+using Microsoft.EntityFrameworkCore;
 
 namespace Gigs.Repositories;
 
@@ -37,7 +38,7 @@ public class VenueRepository(Database database)
             {
                 Name = name,
                 City = city,
-                Slug = Guid.NewGuid().ToString()
+                Slug = Guid.NewGuid().ToString(),
             };
             database.Venue.Add(venue);
             await database.SaveChangesAsync();

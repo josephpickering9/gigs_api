@@ -4,6 +4,8 @@
 
 namespace Gigs.Migrations
 {
+    using Microsoft.EntityFrameworkCore.Migrations;
+
     /// <inheritdoc />
     public partial class AddFestivalYear : Migration
     {

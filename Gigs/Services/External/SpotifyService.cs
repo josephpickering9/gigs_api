@@ -58,7 +58,7 @@ public class SpotifyService
             };
 
             var searchResponse = await _spotify.Search.Item(searchRequest);
-            
+
             if (searchResponse.Artists.Items == null || !searchResponse.Artists.Items.Any())
             {
                 _logger.LogInformation("No artist found on Spotify for '{ArtistName}'", artistName);
@@ -67,7 +67,7 @@ public class SpotifyService
 
             var artist = searchResponse.Artists.Items.First();
             var image = artist.Images.OrderByDescending(i => i.Width).FirstOrDefault();
-            
+
             if (image?.Url == null) return Result.NotFound<string>("No image found for artist.");
 
             return image.Url.ToSuccess();

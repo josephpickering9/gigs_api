@@ -16,7 +16,7 @@ public static class StringExtensions
         output = Regex.Replace(output, @"\s", "-", RegexOptions.Compiled);
 
         // Remove invalid chars
-        output = Regex.Replace(output, @"[^a-z0-9\s-_]", "", RegexOptions.Compiled);
+        output = Regex.Replace(output, @"[^a-z0-9\s-_]", string.Empty, RegexOptions.Compiled);
 
         // Trim dashes from the end
         output = output.Trim('-', '_');
@@ -35,7 +35,10 @@ public static class StringExtensions
         foreach (var c in normalizedString)
         {
             var unicodeCategory = CharUnicodeInfo.GetUnicodeCategory(c);
-            if (unicodeCategory != UnicodeCategory.NonSpacingMark) stringBuilder.Append(c);
+            if (unicodeCategory != UnicodeCategory.NonSpacingMark)
+            {
+                stringBuilder.Append(c);
+            }
         }
 
         return stringBuilder.ToString().Normalize(NormalizationForm.FormC);

@@ -1,13 +1,13 @@
-using Microsoft.AspNetCore.Mvc;
-using Gigs.Services;
 using Gigs.DTOs;
+using Gigs.Services;
 using Gigs.Types;
+using Microsoft.AspNetCore.Mvc;
 
 namespace Gigs.Controllers;
 
 [ApiController]
 [Route("api/[controller]s")]
-public class VenueController(VenueService venueService) : ControllerBase
+public class VenueController(VenueService venueService): ControllerBase
 {
     [HttpGet]
     public async Task<ActionResult<List<GetVenueResponse>>> GetAll()

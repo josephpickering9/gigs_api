@@ -5,6 +5,9 @@ using Microsoft.EntityFrameworkCore.Migrations;
 
 namespace Gigs.Migrations
 {
+    using System;
+    using Microsoft.EntityFrameworkCore.Migrations;
+
     /// <inheritdoc />
     public partial class InitialGigsSchema : Migration
     {
@@ -18,7 +21,7 @@ namespace Gigs.Migrations
                     Id = table.Column<Guid>(type: "uuid", nullable: false),
                     Name = table.Column<string>(type: "text", nullable: false),
                     ImageUrl = table.Column<string>(type: "text", nullable: true),
-                    Slug = table.Column<string>(type: "text", nullable: false)
+                    Slug = table.Column<string>(type: "text", nullable: false),
                 },
                 constraints: table =>
                 {
@@ -31,7 +34,7 @@ namespace Gigs.Migrations
                 {
                     Id = table.Column<Guid>(type: "uuid", nullable: false),
                     Name = table.Column<string>(type: "text", nullable: false),
-                    Slug = table.Column<string>(type: "text", nullable: false)
+                    Slug = table.Column<string>(type: "text", nullable: false),
                 },
                 constraints: table =>
                 {
@@ -46,7 +49,7 @@ namespace Gigs.Migrations
                     Name = table.Column<string>(type: "text", nullable: false),
                     City = table.Column<string>(type: "text", nullable: false),
                     ImageUrl = table.Column<string>(type: "text", nullable: true),
-                    Slug = table.Column<string>(type: "text", nullable: false)
+                    Slug = table.Column<string>(type: "text", nullable: false),
                 },
                 constraints: table =>
                 {
@@ -60,7 +63,7 @@ namespace Gigs.Migrations
                     Id = table.Column<Guid>(type: "uuid", nullable: false),
                     ArtistId = table.Column<Guid>(type: "uuid", nullable: false),
                     Title = table.Column<string>(type: "text", nullable: false),
-                    Slug = table.Column<string>(type: "text", nullable: false)
+                    Slug = table.Column<string>(type: "text", nullable: false),
                 },
                 constraints: table =>
                 {
@@ -83,7 +86,7 @@ namespace Gigs.Migrations
                     TicketCost = table.Column<decimal>(type: "numeric", nullable: true),
                     TicketType = table.Column<string>(type: "text", nullable: false),
                     ImageUrl = table.Column<string>(type: "text", nullable: true),
-                    Slug = table.Column<string>(type: "text", nullable: false)
+                    Slug = table.Column<string>(type: "text", nullable: false),
                 },
                 constraints: table =>
                 {
@@ -105,7 +108,7 @@ namespace Gigs.Migrations
                     ArtistId = table.Column<Guid>(type: "uuid", nullable: false),
                     IsHeadliner = table.Column<bool>(type: "boolean", nullable: false),
                     Order = table.Column<int>(type: "integer", nullable: false),
-                    SetlistUrl = table.Column<string>(type: "text", nullable: true)
+                    SetlistUrl = table.Column<string>(type: "text", nullable: true),
                 },
                 constraints: table =>
                 {
@@ -129,7 +132,7 @@ namespace Gigs.Migrations
                 columns: table => new
                 {
                     GigId = table.Column<Guid>(type: "uuid", nullable: false),
-                    PersonId = table.Column<Guid>(type: "uuid", nullable: false)
+                    PersonId = table.Column<Guid>(type: "uuid", nullable: false),
                 },
                 constraints: table =>
                 {
@@ -154,7 +157,7 @@ namespace Gigs.Migrations
                 {
                     GigArtistId = table.Column<Guid>(type: "uuid", nullable: false),
                     SongId = table.Column<Guid>(type: "uuid", nullable: false),
-                    Order = table.Column<int>(type: "integer", nullable: false)
+                    Order = table.Column<int>(type: "integer", nullable: false),
                 },
                 constraints: table =>
                 {

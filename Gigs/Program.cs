@@ -1,23 +1,22 @@
 using System.Text.Json.Serialization;
 using Auth0.AspNetCore.Authentication;
 using dotenv.net;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.AspNetCore.Diagnostics;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.OpenApi.Models;
 using Gigs.Exceptions;
 using Gigs.Filters;
 using Gigs.Services;
 using Gigs.Services.Image;
 using Gigs.Types;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Diagnostics;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.OpenApi.Models;
 
 DotEnv.Load();
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddDbContext<Database>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection"), o => o.CommandTimeout(300))
-);
+    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection"), o => o.CommandTimeout(300)));
 
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<FileService>();
@@ -47,7 +46,7 @@ builder.Services.AddScoped<Gigs.Services.External.SpotifyService>();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
-    c.SwaggerDoc("v1", new OpenApiInfo { Title = "Gigs API", Version = "" });
+    c.SwaggerDoc("v1", new OpenApiInfo { Title = "Gigs API", Version = string.Empty });
 
     c.OperationFilter<SwaggerFileOperationFilter>();
     c.SchemaFilter<EnumDescriptionSchemaFilter>();
@@ -61,7 +60,6 @@ builder.Services.AddSwaggerGen(c =>
     c.MapType<GigArtistId>(() => new OpenApiSchema { Type = "string", Format = "uuid" });
     c.MapType<SongId>(() => new OpenApiSchema { Type = "string", Format = "uuid" });
     c.MapType<FestivalId>(() => new OpenApiSchema { Type = "string", Format = "uuid" });
-
 });
 builder.Services.AddControllers()
     .AddJsonOptions(options =>
@@ -85,8 +83,8 @@ builder.Services.AddCors(options =>
 builder.Services.AddAuthorization();
 builder.Services.AddAuth0WebAppAuthentication(options =>
 {
-    options.Domain = builder.Configuration["Auth0:Domain"] ?? "";
-    options.ClientId = builder.Configuration["Auth0:ClientId"] ?? "";
+    options.Domain = builder.Configuration["Auth0:Domain"] ?? string.Empty;
+    options.ClientId = builder.Configuration["Auth0:ClientId"] ?? string.Empty;
 });
 builder.Services.AddAuthentication(options =>
 {
