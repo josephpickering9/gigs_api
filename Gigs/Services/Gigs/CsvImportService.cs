@@ -64,7 +64,7 @@ public class CsvImportService(ArtistRepository artistRepository, GigService gigS
         var headlinerId = await artistRepository.GetOrCreateAsync(record.Headliner!);
         actsRequest.Add(new GigArtistRequest
         {
-            ArtistId = headlinerId,
+            ArtistId = headlinerId.ToString(),
             IsHeadliner = true,
             Order = 0,
             SetlistUrl = record.SetlistUrl
@@ -79,7 +79,7 @@ public class CsvImportService(ArtistRepository artistRepository, GigService gigS
                 var supportId = await artistRepository.GetOrCreateAsync(s);
                 actsRequest.Add(new GigArtistRequest
                 {
-                    ArtistId = supportId,
+                    ArtistId = supportId.ToString(),
                     IsHeadliner = false,
                     Order = order++
                 });

@@ -209,7 +209,7 @@ public class GigControllerTests : IClassFixture<CustomWebApplicationFactory<Prog
             {
                 new GigArtistRequest
                 {
-                    ArtistId = await GetArtistIdByName("Metallica"), // Matches headliner
+                    ArtistId = (await GetArtistIdByName("Metallica")).ToString(), // Matches headliner
                     IsHeadliner = true,
                     Order = 0,
                     Setlist = new List<string> { "Enter Sandman", "Master of Puppets" } // New setlist
@@ -238,6 +238,43 @@ public class GigControllerTests : IClassFixture<CustomWebApplicationFactory<Prog
             Assert.Equal(TicketType.VIP, updatedGig.TicketType);
             Assert.Equal("http://new-image.com", updatedGig.ImageUrl);
             Assert.Contains(updatedGig.Acts.First().Songs, s => s.Song.Title == "Enter Sandman");
+        }
+    }
+
+    [Fact]
+    public async Task Create_Upsert_CreatesNewVenue_WithDefaultCity()
+    {
+        await SeedData();
+    
+        var request = new UpsertGigRequest
+        {
+            VenueId = "new:New Venue Without City",
+            // No VenueCity
+            Date = DateOnly.FromDateTime(DateTime.Now),
+            TicketType = TicketType.Standing,
+            Acts = new List<GigArtistRequest>
+            {
+                new GigArtistRequest
+                {
+                    ArtistId = (await GetArtistIdByName("Metallica")).ToString(),
+                    IsHeadliner = true
+                }
+            }
+        };
+    
+        var response = await _client.PostAsJsonAsync("/api/gigs", request, _jsonOptions);
+        response.EnsureSuccessStatusCode();
+    
+        var result = await response.Content.ReadFromJsonAsync<GetGigResponse>(_jsonOptions);
+    
+        Assert.NotNull(result);
+        Assert.Equal("New Venue Without City", result.VenueName);
+        
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<Database>();
+            var newVenue = await db.Venue.FirstAsync(v => v.Name == "New Venue Without City");
+            Assert.Equal("Unknown", newVenue.City);
         }
     }
 

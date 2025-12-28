@@ -6,13 +6,13 @@ namespace Gigs.DataModels;
 
 public class UpsertGigRequest
 {
-    public VenueId? VenueId { get; set; }
+    public string? VenueId { get; set; }
 
     public string? VenueName { get; set; }
 
     public string? VenueCity { get; set; }
 
-    public FestivalId? FestivalId { get; set; }
+    public string? FestivalId { get; set; }
     public string? FestivalName { get; set; }
 
     [Required]
