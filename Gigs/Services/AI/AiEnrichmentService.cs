@@ -18,7 +18,7 @@ public class AiEnrichmentResult
 
 public class AiEnrichmentService
 {
-    private readonly PredictionServiceClient _predictionServiceClient;
+    private readonly Lazy<PredictionServiceClient> _predictionServiceClient;
     private readonly string _projectId;
     private readonly string _location;
     private readonly string _publisher;
@@ -36,36 +36,39 @@ public class AiEnrichmentService
         var credentialsJson = configuration["VertexAi:CredentialsJson"];
         var credentialsFile = configuration["VertexAi:CredentialsFile"];
 
-        var builder = new PredictionServiceClientBuilder
+        _predictionServiceClient = new Lazy<PredictionServiceClient>(() =>
         {
-            Endpoint = $"{_location}-aiplatform.googleapis.com"
-        };
+            var builder = new PredictionServiceClientBuilder
+            {
+                Endpoint = $"{_location}-aiplatform.googleapis.com"
+            };
 
-        try
-        {
-            if (!string.IsNullOrWhiteSpace(credentialsJson) && credentialsJson.TrimStart().StartsWith("{"))
+            try
             {
-                _logger.LogInformation("Using Vertex AI Credentials from JSON configuration.");
-                var credential = Google.Apis.Auth.OAuth2.GoogleCredential.FromJson(credentialsJson);
-                builder.Credential = credential.CreateScoped(PredictionServiceClient.DefaultScopes);
+                if (!string.IsNullOrWhiteSpace(credentialsJson) && credentialsJson.TrimStart().StartsWith("{"))
+                {
+                    _logger.LogInformation("Using Vertex AI Credentials from JSON configuration.");
+                    var credential = Google.Apis.Auth.OAuth2.GoogleCredential.FromJson(credentialsJson);
+                    builder.Credential = credential.CreateScoped(PredictionServiceClient.DefaultScopes);
+                }
+                else if (!string.IsNullOrWhiteSpace(credentialsFile) && File.Exists(credentialsFile))
+                {
+                    _logger.LogInformation("Using Vertex AI Credentials from File: {CredentialsFile}", credentialsFile);
+                    var credential = Google.Apis.Auth.OAuth2.GoogleCredential.FromFile(credentialsFile);
+                    builder.Credential = credential.CreateScoped(PredictionServiceClient.DefaultScopes);
+                }
+                else
+                {
+                    _logger.LogInformation("Using Application Default Credentials (ADC) for Vertex AI.");
+                }
             }
-            else if (!string.IsNullOrWhiteSpace(credentialsFile) && File.Exists(credentialsFile))
+            catch (Exception ex)
             {
-                _logger.LogInformation("Using Vertex AI Credentials from File: {CredentialsFile}", credentialsFile);
-                var credential = Google.Apis.Auth.OAuth2.GoogleCredential.FromFile(credentialsFile);
-                builder.Credential = credential.CreateScoped(PredictionServiceClient.DefaultScopes);
+                _logger.LogWarning(ex, "Failed to load Vertex AI credentials from configuration. Falling back to Application Default Credentials (ADC).");
             }
-            else
-            {
-                _logger.LogInformation("Using Application Default Credentials (ADC) for Vertex AI.");
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Failed to load Vertex AI credentials from configuration. Falling back to Application Default Credentials (ADC).");
-        }
 
-        _predictionServiceClient = builder.Build();
+            return builder.Build();
+        });
     }
 
     public virtual async Task<Result<AiEnrichmentResult>> EnrichGig(Gig gig)
@@ -118,7 +121,7 @@ Output strictly in JSON format:
 
         try
         {
-            var response = await _predictionServiceClient.GenerateContentAsync(generateContentRequest);
+            var response = await _predictionServiceClient.Value.GenerateContentAsync(generateContentRequest);
 
             responseText = response.Candidates.FirstOrDefault()?.Content?.Parts.FirstOrDefault()?.Text;
 
@@ -204,7 +207,7 @@ If you absolutely cannot find one, return 'null'.
 
         try
         {
-            var response = await _predictionServiceClient.GenerateContentAsync(generateContentRequest);
+            var response = await _predictionServiceClient.Value.GenerateContentAsync(generateContentRequest);
             var url = response.Candidates.FirstOrDefault()?.Content?.Parts.FirstOrDefault()?.Text?.Trim();
 
             if (string.IsNullOrWhiteSpace(url) || url.Equals("null", StringComparison.OrdinalIgnoreCase))
@@ -256,7 +259,7 @@ If you absolutely cannot find one, return 'null'.
 
         try
         {
-            var response = await _predictionServiceClient.GenerateContentAsync(generateContentRequest);
+            var response = await _predictionServiceClient.Value.GenerateContentAsync(generateContentRequest);
             var url = response.Candidates.FirstOrDefault()?.Content?.Parts.FirstOrDefault()?.Text?.Trim();
 
             if (string.IsNullOrWhiteSpace(url) || url.Equals("null", StringComparison.OrdinalIgnoreCase))
