@@ -43,6 +43,14 @@ builder.Services.AddScoped<Gigs.Services.AI.AiEnrichmentService>();
 builder.Services.AddScoped<Gigs.Services.Calendar.GoogleCalendarService>();
 builder.Services.AddScoped<Gigs.Services.External.SpotifyService>();
 
+builder.Services.AddRequestTimeouts(options =>
+{
+    options.DefaultPolicy = new Microsoft.AspNetCore.Http.Timeouts.RequestTimeoutPolicy
+    {
+        Timeout = TimeSpan.FromMinutes(10)
+    };
+});
+
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
@@ -128,6 +136,7 @@ app.UseHttpsRedirection();
 app.UseCors("AllowAll");
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseRequestTimeouts();
 app.MapControllers();
 app.Run();
 

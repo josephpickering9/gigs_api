@@ -10,6 +10,7 @@ public class DashboardRepository(Database database)
     public async Task<DashboardStatsResponse> GetDashboardStatsAsync()
     {
         var totalGigs = await database.Gig.CountAsync();
+        var totalFestivals = await database.Festival.CountAsync();
 
         var topArtist = await database.Gig
             .Include(g => g.Acts)
@@ -61,13 +62,39 @@ public class DashboardRepository(Database database)
             .OrderByDescending(x => x.GigCount)
             .FirstOrDefaultAsync();
 
+        var topFestival = await database.Festival
+            .GroupBy(f => f.Name)
+            .Select(g => new TopFestivalStats { FestivalName = g.Key, FestivalCount = g.Count() })
+            .OrderByDescending(x => x.FestivalCount)
+            .FirstOrDefaultAsync();
+
+        var today = DateOnly.FromDateTime(DateTime.Now);
+        var nextGig = await database.Gig
+            .Include(g => g.Venue)
+            .Include(g => g.Acts)
+            .ThenInclude(ga => ga.Artist)
+            .Where(g => g.Date >= today)
+            .OrderBy(g => g.Date)
+            .Select(g => new NextGigStats
+            {
+                VenueName = g.Venue.Name,
+                HeadlineArtist = g.Acts.FirstOrDefault(a => a.IsHeadliner) != null 
+                    ? g.Acts.First(a => a.IsHeadliner).Artist.Name 
+                    : g.Acts.FirstOrDefault() != null ? g.Acts.First().Artist.Name : null,
+                Date = g.Date
+            })
+            .FirstOrDefaultAsync();
+
         return new DashboardStatsResponse
         {
             TotalGigs = totalGigs,
+            TotalFestivals = totalFestivals,
             TopArtist = topArtist,
             TopVenue = topVenue,
             TopCity = topCity,
+            TopFestival = topFestival,
             TopAttendee = topAttendee,
+            NextGig = nextGig
         };
     }
 
@@ -80,6 +107,34 @@ public class DashboardRepository(Database database)
             {
                 Year = g.Key,
                 AveragePrice = g.Average(x => x.TicketCost!.Value),
+            })
+            .OrderBy(x => x.Year)
+            .ToListAsync();
+    }
+
+    public async Task<List<AverageFestivalPriceByYearResponse>> GetAverageFestivalPriceByYearAsync()
+    {
+        return await database.Festival
+            .Where(f => f.StartDate.HasValue && f.EndDate.HasValue && f.Price.HasValue && f.EndDate >= f.StartDate)
+            .GroupBy(f => f.StartDate!.Value.Year)
+            .Select(g => new AverageFestivalPriceByYearResponse
+            {
+                Year = g.Key,
+                AverageDailyPrice = g.Average(f => f.Price!.Value / ((decimal)(f.EndDate!.Value.DayNumber - f.StartDate!.Value.DayNumber + 1)))
+            })
+            .OrderBy(x => x.Year)
+            .ToListAsync();
+    }
+
+    public async Task<List<FestivalsPerYearResponse>> GetFestivalsPerYearAsync()
+    {
+        return await database.Festival
+            .Where(f => f.StartDate.HasValue)
+            .GroupBy(f => f.StartDate!.Value.Year)
+            .Select(g => new FestivalsPerYearResponse
+            {
+                Year = g.Key,
+                FestivalCount = g.Count()
             })
             .OrderBy(x => x.Year)
             .ToListAsync();
@@ -145,21 +200,6 @@ public class DashboardRepository(Database database)
         };
     }
 
-    public async Task<ArtistInsightsResponse> GetArtistInsightsAsync()
-    {
-        var totalUniqueArtists = await database.GigArtist
-            .Select(ga => ga.ArtistId)
-            .Distinct()
-            .CountAsync();
-
-        var totalAppearances = await database.GigArtist.CountAsync();
-
-        return new ArtistInsightsResponse
-        {
-            TotalUniqueArtists = totalUniqueArtists,
-            TotalArtistAppearances = totalAppearances,
-        };
-    }
 
     public async Task<List<TopArtistResponse>> GetTopArtistsAsync(int limit = 10)
     {
@@ -323,23 +363,6 @@ public class DashboardRepository(Database database)
             .ToListAsync();
     }
 
-    public async Task<AttendeeInsightsResponse> GetAttendeeInsightsAsync()
-    {
-        var totalUniqueAttendees = await database.GigAttendee
-            .Select(ga => ga.PersonId)
-            .Distinct()
-            .CountAsync();
-
-        var totalGigsWithAttendees = await database.Gig
-            .Where(g => g.Attendees.Any())
-            .CountAsync();
-
-        return new AttendeeInsightsResponse
-        {
-            TotalUniqueAttendees = totalUniqueAttendees,
-            TotalGigsWithAttendees = totalGigsWithAttendees,
-        };
-    }
 
     public async Task<List<TopAttendeeResponse>> GetTopAttendeesAsync(int limit = 10)
     {
