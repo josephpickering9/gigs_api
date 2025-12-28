@@ -1,4 +1,4 @@
-using Gigs.DTOs;
+using Gigs.DataModels;
 using Microsoft.EntityFrameworkCore;
 using Gigs.Exceptions;
 using Gigs.Models;

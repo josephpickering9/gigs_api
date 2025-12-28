@@ -1,6 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 
-namespace Gigs.DTOs;
+namespace Gigs.DataModels;
 
 public class UpsertFestivalRequest
 {

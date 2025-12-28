@@ -1,4 +1,4 @@
-using Gigs.DTOs;
+using Gigs.DataModels;
 using Gigs.Services;
 using Gigs.Types;
 using Microsoft.AspNetCore.Mvc;
@@ -10,21 +10,21 @@ namespace Gigs.Controllers;
 public class FestivalsController(FestivalService service): ControllerBase
 {
     [HttpGet]
-    public async Task<ActionResult<List<FestivalDto>>> GetAll()
+    public async Task<ActionResult<List<GetFestivalResponse>>> GetAll()
     {
         var result = await service.GetAllAsync();
         return result.ToResponse();
     }
 
     [HttpGet("{id}")]
-    public async Task<ActionResult<FestivalDto>> GetById(FestivalId id)
+    public async Task<ActionResult<GetFestivalResponse>> GetById(FestivalId id)
     {
         var result = await service.GetByIdAsync(id);
         return result.ToResponse();
     }
 
     [HttpPost]
-    public async Task<ActionResult<FestivalDto>> Create(UpsertFestivalRequest request)
+    public async Task<ActionResult<GetFestivalResponse>> Create(UpsertFestivalRequest request)
     {
         var result = await service.CreateAsync(request);
         if (result.IsSuccess && result.Data != null)
@@ -36,7 +36,7 @@ public class FestivalsController(FestivalService service): ControllerBase
     }
 
     [HttpPut("{id}")]
-    public async Task<ActionResult<FestivalDto>> Update(FestivalId id, UpsertFestivalRequest request)
+    public async Task<ActionResult<GetFestivalResponse>> Update(FestivalId id, UpsertFestivalRequest request)
     {
         var result = await service.UpdateAsync(id, request);
         return result.ToResponse();

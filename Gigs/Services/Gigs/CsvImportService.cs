@@ -2,7 +2,7 @@ using System.Globalization;
 using CsvHelper;
 using CsvHelper.Configuration;
 using CsvHelper.Configuration.Attributes;
-using Gigs.DTOs;
+using Gigs.DataModels;
 using Gigs.Models;
 using Gigs.Repositories;
 using Gigs.Types;

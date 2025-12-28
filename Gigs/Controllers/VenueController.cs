@@ -1,4 +1,4 @@
-using Gigs.DTOs;
+using Gigs.DataModels;
 using Gigs.Services;
 using Gigs.Types;
 using Microsoft.AspNetCore.Mvc;

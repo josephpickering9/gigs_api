@@ -1,4 +1,4 @@
-namespace Gigs.DTOs;
+namespace Gigs.DataModels;
 
 public class PaginatedResponse<T>
 {

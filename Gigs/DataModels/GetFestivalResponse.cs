@@ -2,7 +2,7 @@ using Gigs.Types;
 
 namespace Gigs.DataModels;
 
-public class FestivalDto
+public class GetFestivalResponse
 {
     public FestivalId Id { get; set; }
     public string Name { get; set; } = string.Empty;

@@ -25,7 +25,7 @@ public class CalendarDebugController : ControllerBase
     public async Task<IActionResult> Debug([FromQuery] DateTime? startDate = null, [FromQuery] DateTime? endDate = null)
     {
         var result = await _calendarService.GetCalendarEventsAsync(startDate, endDate);
-        var events = result.IsSuccess && result.Data != null ? result.Data : new List<Gigs.DTOs.CalendarEventDto>();
+        var events = result.IsSuccess && result.Data != null ? result.Data : new List<Gigs.DataModels.GetCalendarEventResponse>();
         var venues = await _db.Venue.Select(v => new { v.Name, v.City }).ToListAsync();
 
         var eventLocations = events

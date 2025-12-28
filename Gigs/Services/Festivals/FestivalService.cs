@@ -1,4 +1,4 @@
-using Gigs.DTOs;
+using Gigs.DataModels;
 using Gigs.Exceptions;
 using Gigs.Models;
 using Gigs.Repositories;
@@ -8,18 +8,18 @@ namespace Gigs.Services;
 
 public class FestivalService(FestivalRepository repository, GigService gigService)
 {
-    public async Task<Result<List<FestivalDto>>> GetAllAsync()
+    public async Task<Result<List<GetFestivalResponse>>> GetAllAsync()
     {
         var festivals = await repository.GetAllAsync();
         return festivals.Select(MapToDto).ToList().ToSuccess();
     }
 
-    public async Task<Result<FestivalDto>> GetByIdAsync(FestivalId id)
+    public async Task<Result<GetFestivalResponse>> GetByIdAsync(FestivalId id)
     {
         var festival = await repository.GetByIdAsync(id);
         if (festival == null)
         {
-            return Result.NotFound<FestivalDto>($"Festival with ID {id} not found.");
+            return Result.NotFound<GetFestivalResponse>($"Festival with ID {id} not found.");
         }
 
         var dto = MapToDto(festival);
@@ -42,7 +42,7 @@ public class FestivalService(FestivalRepository repository, GigService gigServic
         return dto.ToSuccess();
     }
 
-    public async Task<Result<FestivalDto>> CreateAsync(UpsertFestivalRequest request)
+    public async Task<Result<GetFestivalResponse>> CreateAsync(UpsertFestivalRequest request)
     {
         var festival = new Festival
         {
@@ -57,12 +57,12 @@ public class FestivalService(FestivalRepository repository, GigService gigServic
         return MapToDto(festival).ToSuccess();
     }
 
-    public async Task<Result<FestivalDto>> UpdateAsync(FestivalId id, UpsertFestivalRequest request)
+    public async Task<Result<GetFestivalResponse>> UpdateAsync(FestivalId id, UpsertFestivalRequest request)
     {
         var festival = await repository.GetByIdAsync(id);
         if (festival == null)
         {
-            return Result.NotFound<FestivalDto>($"Festival with ID {id} not found.");
+            return Result.NotFound<GetFestivalResponse>($"Festival with ID {id} not found.");
         }
 
         festival.Name = request.Name;
@@ -86,9 +86,9 @@ public class FestivalService(FestivalRepository repository, GigService gigServic
         return true.ToSuccess();
     }
 
-    private static FestivalDto MapToDto(Festival festival)
+    private static GetFestivalResponse MapToDto(Festival festival)
     {
-        return new FestivalDto
+        return new GetFestivalResponse
         {
             Id = festival.Id,
             Name = festival.Name,

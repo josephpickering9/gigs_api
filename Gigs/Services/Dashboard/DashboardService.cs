@@ -1,4 +1,4 @@
-using Gigs.DTOs;
+using Gigs.DataModels;
 using Gigs.Repositories;
 using Gigs.Types;
 

@@ -1,7 +1,7 @@
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using Gigs.DTOs;
+using Gigs.DataModels;
 using Gigs.Models;
 using Gigs.Services;
 using Gigs.Types;

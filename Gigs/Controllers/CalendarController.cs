@@ -1,4 +1,4 @@
-using Gigs.DTOs;
+using Gigs.DataModels;
 using Gigs.Services.Calendar;
 using Gigs.Types;
 using Microsoft.AspNetCore.Mvc;
@@ -35,7 +35,7 @@ public class CalendarController : ControllerBase
     /// </summary>
     /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
     [HttpGet("events")]
-    public async Task<ActionResult<List<CalendarEventDto>>> GetEvents([FromQuery] DateTime? startDate = null, [FromQuery] DateTime? endDate = null)
+    public async Task<ActionResult<List<GetCalendarEventResponse>>> GetEvents([FromQuery] DateTime? startDate = null, [FromQuery] DateTime? endDate = null)
     {
         var result = await _calendarService.GetCalendarEventsAsync(startDate, endDate);
         return result.ToResponse();

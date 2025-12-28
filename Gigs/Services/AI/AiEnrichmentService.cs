@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Gigs.Models;
+using Gigs.Types;
 using Google.Cloud.AIPlatform.V1;
 using Google.Protobuf.WellKnownTypes;
 using Microsoft.Extensions.Configuration;

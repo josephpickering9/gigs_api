@@ -2,7 +2,7 @@ using System.ComponentModel.DataAnnotations;
 using Gigs.Models;
 using Gigs.Types;
 
-namespace Gigs.DTOs;
+namespace Gigs.DataModels;
 
 public class UpsertGigRequest
 {

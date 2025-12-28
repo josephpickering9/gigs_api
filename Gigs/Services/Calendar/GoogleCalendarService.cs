@@ -1,5 +1,5 @@
 using System.Text.RegularExpressions;
-using Gigs.DTOs;
+using Gigs.DataModels;
 using Gigs.Models;
 using Gigs.Types;
 using Google.Apis.Auth.OAuth2;
@@ -68,7 +68,7 @@ public class GoogleCalendarService : IDisposable
         });
     }
 
-    public async Task<Result<List<CalendarEventDto>>> GetCalendarEventsAsync(DateTime? startDate = null, DateTime? endDate = null)
+    public async Task<Result<List<GetCalendarEventResponse>>> GetCalendarEventsAsync(DateTime? startDate = null, DateTime? endDate = null)
     {
         try
         {
@@ -82,7 +82,7 @@ public class GoogleCalendarService : IDisposable
             request.MaxResults = 2500;
 
             var events = await request.ExecuteAsync();
-            var eventDtos = new List<CalendarEventDto>();
+            var eventDtos = new List<GetCalendarEventResponse>();
 
             foreach (var calendarEvent in events.Items ??[])
             {
@@ -91,7 +91,7 @@ public class GoogleCalendarService : IDisposable
 
                 var startDateTime = calendarEvent.Start.DateTimeDateTimeOffset?.DateTime ?? DateTime.Parse(calendarEvent.Start.Date!);
 
-                eventDtos.Add(new CalendarEventDto
+                eventDtos.Add(new GetCalendarEventResponse
                 {
                     Id = calendarEvent.Id,
                     Title = calendarEvent.Summary ?? "Untitled Event",
@@ -106,7 +106,7 @@ public class GoogleCalendarService : IDisposable
         }
         catch (Exception ex)
         {
-            return Result.Fail<List<CalendarEventDto>>($"Error fetching calendar events: {ex.Message}");
+            return Result.Fail<List<GetCalendarEventResponse>>($"Error fetching calendar events: {ex.Message}");
         }
     }
 
@@ -171,9 +171,9 @@ public class GoogleCalendarService : IDisposable
         }
     }
 
-    private async Task<bool?> ProcessCalendarEventAsync(CalendarEventDto calendarEvent)
+    private async Task<bool?> ProcessCalendarEventAsync(GetCalendarEventResponse getCalendarEvent)
     {
-        var gigInfo = await ParseCalendarEvent(calendarEvent);
+        var gigInfo = await ParseCalendarEvent(getCalendarEvent);
 
         if (gigInfo == null)
         {
@@ -249,12 +249,12 @@ public class GoogleCalendarService : IDisposable
         return isNew;
     }
 
-    private async Task<GigInfo?> ParseCalendarEvent(CalendarEventDto calendarEvent)
+    private async Task<GigInfo?> ParseCalendarEvent(GetCalendarEventResponse getCalendarEvent)
     {
-        var title = calendarEvent.Title.Trim();
+        var title = getCalendarEvent.Title.Trim();
 
-        var location = calendarEvent.Location?.Trim();
-        var description = calendarEvent.Description?.Trim();
+        var location = getCalendarEvent.Location?.Trim();
+        var description = getCalendarEvent.Description?.Trim();
 
         Venue? venue = null;
         Artist? matchedArtist = null;
@@ -350,7 +350,7 @@ public class GoogleCalendarService : IDisposable
         {
             ArtistName = artistName,
             Venue = venue,
-            Date = DateOnly.FromDateTime(calendarEvent.StartDateTime),
+            Date = DateOnly.FromDateTime(getCalendarEvent.StartDateTime),
             SupportActs = supportActs,
             TicketCost = ticketCost
         };

@@ -1,5 +1,5 @@
 using Microsoft.EntityFrameworkCore;
-using Gigs.DTOs;
+using Gigs.DataModels;
 using Gigs.Services;
 using Microsoft.EntityFrameworkCore;
 
