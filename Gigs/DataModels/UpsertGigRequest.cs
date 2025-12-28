@@ -6,7 +6,7 @@ namespace Gigs.DataModels;
 
 public class UpsertGigRequest
 {
-    public VenueId? VenueId { get; set; }
+    public string? VenueId { get; set; }
 
     public string? VenueName { get; set; }
 
