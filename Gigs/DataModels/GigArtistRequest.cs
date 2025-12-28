@@ -4,7 +4,7 @@ namespace Gigs.DataModels;
 
 public class GigArtistRequest
 {
-    public ArtistId ArtistId { get; set; }
+    public string ArtistId { get; set; }
 
     public bool IsHeadliner { get; set; }
 

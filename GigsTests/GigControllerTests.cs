@@ -209,7 +209,7 @@ public class GigControllerTests : IClassFixture<CustomWebApplicationFactory<Prog
             {
                 new GigArtistRequest
                 {
-                    ArtistId = await GetArtistIdByName("Metallica"), // Matches headliner
+                    ArtistId = (await GetArtistIdByName("Metallica")).ToString(), // Matches headliner
                     IsHeadliner = true,
                     Order = 0,
                     Setlist = new List<string> { "Enter Sandman", "Master of Puppets" } // New setlist

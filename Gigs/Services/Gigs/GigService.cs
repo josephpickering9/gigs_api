@@ -42,12 +42,25 @@ public class GigService(
 
     public async Task<Result<GetGigResponse>> CreateAsync(UpsertGigRequest request)
     {
-        var venueId = await venueRepository.GetOrCreateAsync(request.VenueName!, request.VenueCity!);
+        VenueId venueId;
+        if (Guid.TryParse(request.VenueId, out var vId))
+        {
+            venueId = IdFactory.Create<VenueId>(vId);
+        }
+        else
+        {
+            var venueName = request.VenueName ?? ResolveNameFromId(request.VenueId);
+            if (string.IsNullOrWhiteSpace(venueName))
+            {
+                return Result.Fail<GetGigResponse>("Venue Name or Valid Venue ID is required.");
+            }
+            venueId = await venueRepository.GetOrCreateAsync(venueName, request.VenueCity ?? "");
+        }
 
         var headliner = request.Acts.FirstOrDefault(a => a.IsHeadliner);
-        if (headliner != null)
+        if (headliner != null && Guid.TryParse(headliner.ArtistId, out var headlinerArtistId))
         {
-            var existingGig = await repository.FindAsync(venueId, request.Date, headliner.ArtistId);
+            var existingGig = await repository.FindAsync(venueId, request.Date, IdFactory.Create<ArtistId>(headlinerArtistId));
             if (existingGig != null)
             {
                 return await UpdateAsync(existingGig.Id, request);
@@ -77,7 +90,20 @@ public class GigService(
             return Result.NotFound<GetGigResponse>($"Gig with ID {id} not found.");
         }
 
-        var venueId = await venueRepository.GetOrCreateAsync(request.VenueName!, request.VenueCity!);
+        VenueId venueId;
+        if (Guid.TryParse(request.VenueId, out var vId))
+        {
+            venueId = IdFactory.Create<VenueId>(vId);
+        }
+        else
+        {
+            var venueName = request.VenueName ?? ResolveNameFromId(request.VenueId);
+            if (string.IsNullOrWhiteSpace(venueName))
+            {
+                return Result.Fail<GetGigResponse>("Venue Name or Valid Venue ID is required.");
+            }
+            venueId = await venueRepository.GetOrCreateAsync(venueName, request.VenueCity ?? "");
+        }
 
         await UpdateGigDetails(gig, request, venueId);
         await ReconcileActs(gig, request.Acts);
@@ -95,9 +121,24 @@ public class GigService(
         {
             gig.FestivalId = await festivalRepository.GetOrCreateAsync(request.FestivalName);
         }
-        else if (request.FestivalId.HasValue)
+        else if (!string.IsNullOrWhiteSpace(request.FestivalId))
         {
-            gig.FestivalId = request.FestivalId;
+            if (Guid.TryParse(request.FestivalId, out var fId))
+            {
+                gig.FestivalId = IdFactory.Create<FestivalId>(fId);
+            }
+            else
+            {
+                var name = ResolveNameFromId(request.FestivalId);
+                if (!string.IsNullOrWhiteSpace(name))
+                {
+                    gig.FestivalId = await festivalRepository.GetOrCreateAsync(name);
+                }
+                else
+                {
+                    gig.FestivalId = null;
+                }
+            }
         }
         else
         {
@@ -112,7 +153,23 @@ public class GigService(
 
     private async Task ReconcileActs(Gig gig, List<GigArtistRequest> requestedActs)
     {
-        var requestedArtistIds = requestedActs.Select(a => a.ArtistId).ToHashSet();
+        var resolvedActs = new List<(GigArtistRequest Request, ArtistId ArtistId)>();
+        foreach (var req in requestedActs)
+        {
+            ArtistId artistId;
+            if (Guid.TryParse(req.ArtistId, out var aId))
+            {
+                artistId = IdFactory.Create<ArtistId>(aId);
+            }
+            else
+            {
+                var name = ResolveNameFromId(req.ArtistId) ?? req.ArtistId;
+                artistId = await artistRepository.GetOrCreateAsync(name);
+            }
+            resolvedActs.Add((req, artistId));
+        }
+
+        var requestedArtistIds = resolvedActs.Select(a => a.ArtistId).ToHashSet();
 
         var actsToRemove = gig.Acts.Where(a => !requestedArtistIds.Contains(a.ArtistId)).ToList();
         foreach (var act in actsToRemove)
@@ -120,27 +177,27 @@ public class GigService(
             gig.Acts.Remove(act);
         }
 
-        foreach (var actRequest in requestedActs)
+        foreach (var (actRequest, artistId) in resolvedActs)
         {
-            var existingAct = gig.Acts.FirstOrDefault(a => a.ArtistId == actRequest.ArtistId);
+            var existingAct = gig.Acts.FirstOrDefault(a => a.ArtistId == artistId);
             if (existingAct != null)
             {
                 existingAct.IsHeadliner = actRequest.IsHeadliner;
                 existingAct.Order = actRequest.Order;
                 existingAct.SetlistUrl = actRequest.SetlistUrl;
-                await ProcessSetlist(existingAct, actRequest.Setlist, actRequest.ArtistId);
+                await ProcessSetlist(existingAct, actRequest.Setlist, artistId);
             }
             else
             {
                 var newAct = new GigArtist
                 {
-                    ArtistId = actRequest.ArtistId,
+                    ArtistId = artistId,
                     GigId = gig.Id,
                     IsHeadliner = actRequest.IsHeadliner,
                     Order = actRequest.Order,
                     SetlistUrl = actRequest.SetlistUrl
                 };
-                await ProcessSetlist(newAct, actRequest.Setlist, actRequest.ArtistId);
+                await ProcessSetlist(newAct, actRequest.Setlist, artistId);
                 gig.Acts.Add(newAct);
             }
         }
@@ -151,7 +208,8 @@ public class GigService(
         var requestedPersonIds = new List<PersonId>();
         foreach (var personName in requestedAttendeeNames)
         {
-            var personId = await personRepository.GetOrCreateAsync(personName);
+            var name = ResolveNameFromId(personName) ?? personName;
+            var personId = await personRepository.GetOrCreateAsync(name);
             requestedPersonIds.Add(personId);
         }
 
@@ -339,5 +397,14 @@ public class GigService(
                 });
             }
         }
+    }
+    private static string? ResolveNameFromId(string? id)
+    {
+        if (string.IsNullOrWhiteSpace(id)) return null;
+        if (id.StartsWith("new:", StringComparison.OrdinalIgnoreCase))
+        {
+            return id.Substring(4);
+        }
+        return null;
     }
 }
