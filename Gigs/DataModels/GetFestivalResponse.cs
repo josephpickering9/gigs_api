@@ -1,6 +1,6 @@
 using Gigs.Types;
 
-namespace Gigs.DTOs;
+namespace Gigs.DataModels;
 
 public class FestivalDto
 {

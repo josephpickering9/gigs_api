@@ -1,6 +1,6 @@
-namespace Gigs.DTOs;
+namespace Gigs.DataModels;
 
-public class CalendarEventDto
+public class GetCalendarEventResponse
 {
     public string Id { get; set; } = null!;
     public string Title { get; set; } = null!;
