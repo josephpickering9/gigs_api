@@ -278,6 +278,50 @@ public class GigControllerTests : IClassFixture<CustomWebApplicationFactory<Prog
         }
     }
 
+    [Fact]
+    public async Task Create_Upsert_AddsExistingAttendee_ById()
+    {
+        await SeedData();
+    
+        // 1. Get an existing person
+        PersonId personId;
+        string personName;
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<Database>();
+            var person = await db.Person.FirstAsync();
+            personId = person.Id;
+            personName = person.Name;
+        }
+    
+        var request = new UpsertGigRequest
+        {
+            VenueId = "new:Venue For Attendee Test",
+            VenueCity = "London",
+            Date = DateOnly.FromDateTime(DateTime.Now),
+            TicketType = TicketType.Standing,
+            Acts = new List<GigArtistRequest>
+            {
+                new GigArtistRequest
+                {
+                    ArtistId = (await GetArtistIdByName("Metallica")).ToString(),
+                    IsHeadliner = true
+                }
+            },
+            Attendees = new List<string> { personId.ToString() } // Pass ID as string
+        };
+    
+        var response = await _client.PostAsJsonAsync("/api/gigs", request, _jsonOptions);
+        response.EnsureSuccessStatusCode();
+    
+        var result = await response.Content.ReadFromJsonAsync<GetGigResponse>(_jsonOptions);
+    
+        Assert.NotNull(result);
+        Assert.Single(result.Attendees);
+        Assert.Equal(personId, result.Attendees.First().PersonId);
+        Assert.Equal(personName, result.Attendees.First().PersonName);
+    }
+
     private async Task<ArtistId> GetArtistIdByName(string name)
     {
         using (var scope = _factory.Services.CreateScope())

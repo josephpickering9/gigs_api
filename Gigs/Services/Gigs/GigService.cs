@@ -210,19 +210,29 @@ public class GigService(
         var requestedPersonIds = new List<PersonId>();
         foreach (var personName in requestedAttendeeNames)
         {
-            var name = ResolveNameFromId(personName) ?? personName;
-            var personId = await personRepository.GetOrCreateAsync(name);
-            requestedPersonIds.Add(personId);
+            var name = ResolveNameFromId(personName);
+            if (name != null)
+            {
+                var personId = await personRepository.GetOrCreateAsync(name);
+                requestedPersonIds.Add(personId);
+                continue;
+            }
+
+            if (Guid.TryParse(personName, out var guid))
+            {
+                requestedPersonIds.Add(IdFactory.Create<PersonId>(guid));
+                continue;
+            }
+
+            var personIdByName = await personRepository.GetOrCreateAsync(personName);
+            requestedPersonIds.Add(personIdByName);
         }
-
         var requestedAttendeeIds = requestedPersonIds.ToHashSet();
-
         var attendeesToRemove = gig.Attendees.Where(a => !requestedAttendeeIds.Contains(a.PersonId)).ToList();
         foreach (var attendee in attendeesToRemove)
         {
             gig.Attendees.Remove(attendee);
         }
-
         foreach (var personId in requestedPersonIds)
         {
             var existingAttendee = gig.Attendees.FirstOrDefault(a => a.PersonId == personId);
