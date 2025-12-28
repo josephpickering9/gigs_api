@@ -5,13 +5,17 @@ namespace Gigs.Models;
 
 public class Song
 {
-    [Required] public SongId Id { get; set; } = SongId.New();
+    [Required]
+    public SongId Id { get; set; } = SongId.New();
 
-    [Required] public ArtistId ArtistId { get; set; }
+    [Required]
+    public ArtistId ArtistId { get; set; }
 
     public Artist Artist { get; set; } = null!;
 
-    [Required] public string Title { get; set; } = null!;
+    [Required]
+    public string Title { get; set; } = null!;
 
-    [Required] public string Slug { get; set; } = Guid.NewGuid().ToString();
+    [Required]
+    public string Slug { get; set; } = Guid.NewGuid().ToString();
 }

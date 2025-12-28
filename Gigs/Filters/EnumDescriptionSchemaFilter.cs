@@ -24,7 +24,11 @@ public class EnumDescriptionSchemaFilter : ISchemaFilter
         }
 
         schema.Enum.Clear();
-        foreach (var enumDescription in enumDescriptions) schema.Enum.Add(new OpenApiString(enumDescription));
+        foreach (var enumDescription in enumDescriptions)
+        {
+            schema.Enum.Add(new OpenApiString(enumDescription));
+        }
+
         schema.Type = "string";
     }
 }

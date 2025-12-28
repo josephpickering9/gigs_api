@@ -22,7 +22,7 @@ public class CsvImportServiceTests : IClassFixture<CustomWebApplicationFactory<P
         // Arrange
         using var scope = _factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<Database>();
-        var csvService = scope.ServiceProvider.GetRequiredService<ICsvImportService>();
+        var csvService = scope.ServiceProvider.GetRequiredService<CsvImportService>();
 
         // Ensure clean state
         db.Database.EnsureDeleted();
@@ -32,16 +32,18 @@ public class CsvImportServiceTests : IClassFixture<CustomWebApplicationFactory<P
 2023-11-20,The O2,London,Queen,Adam Lambert,85.00,Seated,John Doe,Rock,http://setlist.fm/queen
 2023-11-20,The O2,London,Queen,Adam Lambert,90.00,VIP,,Rock,http://setlist.fm/queen/vip
 ";
-        // Note: Two records. Same Date, Venue, Headliner. Diff cost/type. 
-        // Upsert logic should update the first one with the second one's details.
 
+        // Note: Two records. Same Date, Venue, Headliner. Diff cost/type.
+        // Upsert logic should update the first one with the second one's details.
         using var memoryStream = new MemoryStream(Encoding.UTF8.GetBytes(csvContent));
 
         // Act
-        var count = await csvService.ImportGigsAsync(memoryStream);
+        // Act
+        var result = await csvService.ImportGigsAsync(memoryStream);
 
         // Assert
-        Assert.Equal(2, count); // Processed 2 records
+        Assert.True(result.IsSuccess);
+        Assert.Equal(2, result.Data); // Processed 2 records
 
         var gigs = await db.Gig
             .Include(g => g.Venue)
@@ -54,7 +56,7 @@ public class CsvImportServiceTests : IClassFixture<CustomWebApplicationFactory<P
         Assert.Equal("The O2", gig.Venue.Name);
         Assert.Equal(new DateOnly(2023, 11, 20), gig.Date);
         Assert.Contains(gig.Acts, a => a.IsHeadliner && a.Artist.Name == "Queen");
-        
+
         // Check updates from second record
         Assert.Equal(TicketType.VIP, gig.TicketType); // Should be updated to VIP
         Assert.Equal(90.00m, gig.TicketCost); // Should be updated to 90

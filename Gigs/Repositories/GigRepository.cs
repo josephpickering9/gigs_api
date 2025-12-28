@@ -1,13 +1,13 @@
+using Gigs.DataModels;
 using Microsoft.EntityFrameworkCore;
 using Gigs.Exceptions;
 using Gigs.Models;
 using Gigs.Services;
 using Gigs.Types;
-using Gigs.DTOs;
 
 namespace Gigs.Repositories;
 
-public class GigRepository(Database database) : IGigRepository
+public class GigRepository(Database database)
 {
     public async Task<(List<Gig> Items, int TotalCount)> GetAllAsync(GetGigsFilter filter)
     {
@@ -54,8 +54,7 @@ public class GigRepository(Database database) : IGigRepository
             var searchTerm = filter.Search.ToLower();
             query = query.Where(g =>
                 (g.Venue != null && g.Venue.Name.ToLower().Contains(searchTerm)) ||
-                g.Acts.Any(a => a.Artist != null && a.Artist.Name.ToLower().Contains(searchTerm))
-            );
+                g.Acts.Any(a => a.Artist != null && a.Artist.Name.ToLower().Contains(searchTerm)));
         }
 
         if (filter.AttendeeId.HasValue)
@@ -118,5 +117,17 @@ public class GigRepository(Database database) : IGigRepository
             database.Gig.Remove(gig);
             await database.SaveChangesAsync();
         }
+    }
+
+    public async Task<List<Gig>> GetEnrichmentCandidatesAsync()
+    {
+        var allGigs = await database.Gig
+            .Include(g => g.Acts).ThenInclude(ga => ga.Songs)
+            .OrderByDescending(g => g.Date)
+            .ToListAsync();
+
+        return allGigs.Where(gig =>
+            gig.Acts.Count <= 1 ||
+            gig.Acts.Any(a => a.IsHeadliner && !a.Songs.Any())).ToList();
     }
 }

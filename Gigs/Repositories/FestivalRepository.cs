@@ -5,7 +5,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Gigs.Repositories;
 
-public class FestivalRepository(Database database) : IFestivalRepository
+public class FestivalRepository(Database database)
 {
     public async Task<List<Festival>> GetAllAsync()
     {
@@ -38,11 +38,34 @@ public class FestivalRepository(Database database) : IFestivalRepository
             .FirstOrDefaultAsync(f => f.Id == id);
     }
 
-    public async Task<Festival> AddAsync(Festival festival)
+    public async Task AddAsync(Festival festival)
     {
         database.Festival.Add(festival);
         await database.SaveChangesAsync();
-        return festival;
+    }
+
+    public async Task<FestivalId> GetOrCreateAsync(string name)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            throw new ArgumentException("Festival name cannot be empty.");
+        }
+
+        var festival = database.Festival.Local.FirstOrDefault(f => f.Name.Equals(name, StringComparison.CurrentCultureIgnoreCase))
+                       ?? await database.Festival.FirstOrDefaultAsync(f => f.Name.ToLower() == name.ToLower());
+
+        if (festival == null)
+        {
+            festival = new Festival
+            {
+                Name = name,
+                Slug = Guid.NewGuid().ToString(),
+            };
+            database.Festival.Add(festival);
+            await database.SaveChangesAsync();
+        }
+
+        return festival.Id;
     }
 
     public async Task<Festival> UpdateAsync(Festival festival)

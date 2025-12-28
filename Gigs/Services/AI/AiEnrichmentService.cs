@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Gigs.Models;
+using Gigs.Types;
 using Google.Cloud.AIPlatform.V1;
 using Google.Protobuf.WellKnownTypes;
 using Microsoft.Extensions.Configuration;
@@ -8,23 +9,16 @@ using Value = Google.Protobuf.WellKnownTypes.Value;
 
 namespace Gigs.Services.AI;
 
-public interface IAiEnrichmentService
-{
-    Task<AiEnrichmentResult> EnrichGig(Gig gig);
-    Task<string?> EnrichArtistImage(string artistName);
-    Task<string?> EnrichVenueImage(string venueName, string city);
-}
-
 public class AiEnrichmentResult
 {
-    public List<string> SupportActs { get; set; } = [];
-    public List<string> Setlist { get; set; } = [];
+    public List<string> SupportActs { get; set; } =[];
+    public List<string> Setlist { get; set; } =[];
     public string? ImageSearchQuery { get; set; }
 }
 
-public class AiEnrichmentService : IAiEnrichmentService
+public class AiEnrichmentService
 {
-    private readonly PredictionServiceClient _predictionServiceClient;
+    private readonly Lazy<PredictionServiceClient> _predictionServiceClient;
     private readonly string _projectId;
     private readonly string _location;
     private readonly string _publisher;
@@ -42,39 +36,42 @@ public class AiEnrichmentService : IAiEnrichmentService
         var credentialsJson = configuration["VertexAi:CredentialsJson"];
         var credentialsFile = configuration["VertexAi:CredentialsFile"];
 
-        var builder = new PredictionServiceClientBuilder
+        _predictionServiceClient = new Lazy<PredictionServiceClient>(() =>
         {
-            Endpoint = $"{_location}-aiplatform.googleapis.com"
-        };
+            var builder = new PredictionServiceClientBuilder
+            {
+                Endpoint = $"{_location}-aiplatform.googleapis.com"
+            };
 
-        try
-        {
-            if (!string.IsNullOrWhiteSpace(credentialsJson) && credentialsJson.TrimStart().StartsWith("{"))
+            try
             {
-                _logger.LogInformation("Using Vertex AI Credentials from JSON configuration.");
-                var credential = Google.Apis.Auth.OAuth2.GoogleCredential.FromJson(credentialsJson);
-                builder.Credential = credential.CreateScoped(PredictionServiceClient.DefaultScopes);
+                if (!string.IsNullOrWhiteSpace(credentialsJson) && credentialsJson.TrimStart().StartsWith("{"))
+                {
+                    _logger.LogInformation("Using Vertex AI Credentials from JSON configuration.");
+                    var credential = Google.Apis.Auth.OAuth2.GoogleCredential.FromJson(credentialsJson);
+                    builder.Credential = credential.CreateScoped(PredictionServiceClient.DefaultScopes);
+                }
+                else if (!string.IsNullOrWhiteSpace(credentialsFile) && File.Exists(credentialsFile))
+                {
+                    _logger.LogInformation("Using Vertex AI Credentials from File: {CredentialsFile}", credentialsFile);
+                    var credential = Google.Apis.Auth.OAuth2.GoogleCredential.FromFile(credentialsFile);
+                    builder.Credential = credential.CreateScoped(PredictionServiceClient.DefaultScopes);
+                }
+                else
+                {
+                    _logger.LogInformation("Using Application Default Credentials (ADC) for Vertex AI.");
+                }
             }
-            else if (!string.IsNullOrWhiteSpace(credentialsFile) && File.Exists(credentialsFile))
+            catch (Exception ex)
             {
-                _logger.LogInformation("Using Vertex AI Credentials from File: {CredentialsFile}", credentialsFile);
-                var credential = Google.Apis.Auth.OAuth2.GoogleCredential.FromFile(credentialsFile);
-                builder.Credential = credential.CreateScoped(PredictionServiceClient.DefaultScopes);
+                _logger.LogWarning(ex, "Failed to load Vertex AI credentials from configuration. Falling back to Application Default Credentials (ADC).");
             }
-            else
-            {
-                _logger.LogInformation("Using Application Default Credentials (ADC) for Vertex AI.");
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Failed to load Vertex AI credentials from configuration. Falling back to Application Default Credentials (ADC).");
-        }
 
-        _predictionServiceClient = builder.Build();
+            return builder.Build();
+        });
     }
 
-    public async Task<AiEnrichmentResult> EnrichGig(Gig gig)
+    public virtual async Task<Result<AiEnrichmentResult>> EnrichGig(Gig gig)
     {
         var endpoint = EndpointName.FormatProjectLocationPublisherModel(_projectId, _location, _publisher, _model);
 
@@ -108,25 +105,6 @@ Output strictly in JSON format:
             }
         };
 
-        var instance = new Value
-        {
-            StructValue = new Struct
-            {
-                Fields =
-                {
-                    // Structuring for Gemini API input via PredictionServiceClient can be tricky essentially wrapping the Content
-                    // However, for Gemini we typically use the GenerateContent methods if using the specialized Gemini client.
-                    // But with PredictionServiceClient, we send raw instances.
-                    // Let's stick effectively to the raw JSON approach or switch to `Google.Cloud.AIPlatform.V1.GenerativeModel` if available in this package version.
-                    // Actually, for simplicity and standard usage with `Google.Cloud.AIPlatform.V1`, we usually use `PredictionServiceClient` with the "generateContent" custom method or similar.
-                    // A better approach for Gemini specifically in recent SDKs is effectively ensuring we send the right payload.
-                    // BUT, `Google.Cloud.AIPlatform.V1` has a `GenerateContentRequest`.
-                }
-            }
-        };
-
-        // Wait, strictly speaking, for Gemini models on Vertex AI, we should use the `PredictionServiceClient.GenerateContentAsync` method which takes a `GenerateContentRequest`.
-
         var generateContentRequest = new GenerateContentRequest
         {
             Model = endpoint,
@@ -143,17 +121,16 @@ Output strictly in JSON format:
 
         try
         {
-            var response = await _predictionServiceClient.GenerateContentAsync(generateContentRequest);
+            var response = await _predictionServiceClient.Value.GenerateContentAsync(generateContentRequest);
 
             responseText = response.Candidates.FirstOrDefault()?.Content?.Parts.FirstOrDefault()?.Text;
 
             if (string.IsNullOrEmpty(responseText))
             {
                 _logger.LogWarning("Empty response from AI for Gig {GigId}", gig.Id);
-                return new AiEnrichmentResult();
+                return Result.Fail<AiEnrichmentResult>("Empty response from AI.");
             }
 
-            // Clean up: find first '{' and last '}'
             var firstBrace = responseText.IndexOf('{');
             var lastBrace = responseText.LastIndexOf('}');
 
@@ -163,8 +140,7 @@ Output strictly in JSON format:
             }
             else
             {
-                // Fallback cleanup if braces not found correctly (unlikely for valid JSON)
-                responseText = responseText.Replace("```json", "").Replace("```", "").Trim();
+                responseText = responseText.Replace("```json", string.Empty).Replace("```", string.Empty).Trim();
             }
 
             var options = new JsonSerializerOptions
@@ -175,26 +151,26 @@ Output strictly in JSON format:
             };
 
             var result = JsonSerializer.Deserialize<AiEnrichmentResult>(responseText, options);
-            return result ?? new AiEnrichmentResult();
+            return (result ?? new AiEnrichmentResult()).ToSuccess();
         }
         catch (Grpc.Core.RpcException ex) when (ex.Status.StatusCode == Grpc.Core.StatusCode.Unauthenticated || ex.Message.Contains("invalid_grant"))
         {
             _logger.LogError(ex, "Vertex AI Authentication failed. Please run 'gcloud auth application-default login' to refresh your credentials.");
-            throw new Exception("Vertex AI Authentication failed. Please check server logs for details.", ex);
+            return Result.Fail<AiEnrichmentResult>("Vertex AI Authentication failed.");
         }
         catch (JsonException ex)
         {
-             _logger.LogError(ex, "Failed to parse AI response. Raw Text: {RawResponse}", responseText);
-             throw new Exception($"Failed to parse AI response. Raw Text: {responseText}", ex);
+            _logger.LogError(ex, "Failed to parse AI response. Raw Text: {RawResponse}", responseText);
+            return Result.Fail<AiEnrichmentResult>($"Failed to parse AI response: {ex.Message}");
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error enriching gig {GigId}", gig.Id);
-            throw; // Or return empty/partial result depending on requirement
+            return Result.Fail<AiEnrichmentResult>($"Error enriching gig: {ex.Message}");
         }
     }
 
-    public async Task<string?> EnrichArtistImage(string artistName)
+    public virtual async Task<Result<string>> EnrichArtistImage(string artistName)
     {
         var endpoint = EndpointName.FormatProjectLocationPublisherModel(_projectId, _location, _publisher, _model);
 
@@ -231,22 +207,22 @@ If you absolutely cannot find one, return 'null'.
 
         try
         {
-            var response = await _predictionServiceClient.GenerateContentAsync(generateContentRequest);
+            var response = await _predictionServiceClient.Value.GenerateContentAsync(generateContentRequest);
             var url = response.Candidates.FirstOrDefault()?.Content?.Parts.FirstOrDefault()?.Text?.Trim();
 
             if (string.IsNullOrWhiteSpace(url) || url.Equals("null", StringComparison.OrdinalIgnoreCase))
-                return null;
+                return Result.NotFound<string>("Image not found.");
 
-            return url;
+            return url.ToSuccess();
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error fetching artist image for {ArtistName}", artistName);
-            return null;
+            return Result.Fail<string>($"Error fetching artist image: {ex.Message}");
         }
     }
 
-    public async Task<string?> EnrichVenueImage(string venueName, string city)
+    public virtual async Task<Result<string>> EnrichVenueImage(string venueName, string city)
     {
         var endpoint = EndpointName.FormatProjectLocationPublisherModel(_projectId, _location, _publisher, _model);
 
@@ -283,18 +259,18 @@ If you absolutely cannot find one, return 'null'.
 
         try
         {
-            var response = await _predictionServiceClient.GenerateContentAsync(generateContentRequest);
+            var response = await _predictionServiceClient.Value.GenerateContentAsync(generateContentRequest);
             var url = response.Candidates.FirstOrDefault()?.Content?.Parts.FirstOrDefault()?.Text?.Trim();
 
             if (string.IsNullOrWhiteSpace(url) || url.Equals("null", StringComparison.OrdinalIgnoreCase))
-                return null;
+                return Result.NotFound<string>("Image not found.");
 
-            return url;
+            return url.ToSuccess();
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error fetching venue image for {VenueName} in {City}", venueName, city);
-            return null;
+            return Result.Fail<string>($"Error fetching venue image: {ex.Message}");
         }
     }
 }

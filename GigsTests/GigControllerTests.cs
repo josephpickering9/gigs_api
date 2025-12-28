@@ -1,12 +1,12 @@
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using Gigs.DTOs;
+using Gigs.DataModels;
 using Gigs.Models;
 using Gigs.Services;
 using Gigs.Types;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
 namespace GigsTests;
@@ -102,7 +102,7 @@ public class GigControllerTests : IClassFixture<CustomWebApplicationFactory<Prog
         response.EnsureSuccessStatusCode();
 
         var result = await response.Content.ReadFromJsonAsync<PaginatedResponse<GetGigResponse>>(_jsonOptions);
-        
+
         Assert.NotNull(result);
         Assert.Equal(15, result.TotalCount);
         Assert.Equal(pageSize, result.Items.Count);
@@ -114,7 +114,7 @@ public class GigControllerTests : IClassFixture<CustomWebApplicationFactory<Prog
     public async Task GetAll_Pagination_SecondPage()
     {
         await SeedData();
-        
+
         var pageSize = 5;
         var response = await _client.GetAsync($"/api/gigs?page=2&pageSize={pageSize}");
         response.EnsureSuccessStatusCode();
@@ -139,6 +139,7 @@ public class GigControllerTests : IClassFixture<CustomWebApplicationFactory<Prog
 
         Assert.NotNull(result);
         Assert.True(result.Items.All(g => g.VenueName.Contains("Wembley")));
+
         // Wembley is venue1, used for even indices: 0, 2, 4, 6, 8, 10, 12, 14 -> 8 gigs
         Assert.Equal(8, result.TotalCount);
     }
@@ -156,6 +157,7 @@ public class GigControllerTests : IClassFixture<CustomWebApplicationFactory<Prog
 
         Assert.NotNull(result);
         Assert.True(result.Items.All(g => g.Acts.Any(a => a.Name.Contains("Metallica"))));
+
         // Metallica is artist1, used when i % 3 == 0: 0, 3, 6, 9, 12 -> 5 gigs
         Assert.Equal(5, result.TotalCount);
     }
@@ -181,6 +183,7 @@ public class GigControllerTests : IClassFixture<CustomWebApplicationFactory<Prog
         var result = await response.Content.ReadFromJsonAsync<PaginatedResponse<GetGigResponse>>(_jsonOptions);
 
         Assert.NotNull(result);
+
         // We added attendee to gigs with index < 5 -> 5 gigs (0, 1, 2, 3, 4)
         Assert.Equal(5, result.TotalCount);
     }
@@ -193,7 +196,7 @@ public class GigControllerTests : IClassFixture<CustomWebApplicationFactory<Prog
         // 1. Pick an existing gig to duplicate
         // Gig 0: Venue: Wembley (venue1), Date: Now, Headliner: Metallica (artist1)
         var originalGigDate = DateOnly.FromDateTime(DateTime.Now);
-        
+
         // 2. Create a request that matches this gig's core criteria
         var request = new UpsertGigRequest
         {
@@ -206,7 +209,7 @@ public class GigControllerTests : IClassFixture<CustomWebApplicationFactory<Prog
             {
                 new GigArtistRequest
                 {
-                    ArtistId = (await GetArtistIdByName("Metallica")), // Matches headliner
+                    ArtistId = await GetArtistIdByName("Metallica"), // Matches headliner
                     IsHeadliner = true,
                     Order = 0,
                     Setlist = new List<string> { "Enter Sandman", "Master of Puppets" } // New setlist
@@ -222,16 +225,15 @@ public class GigControllerTests : IClassFixture<CustomWebApplicationFactory<Prog
 
         // 4. Assert
         Assert.NotNull(result);
-        
-        // Should have the same ID as the original gig (we can't easily know the ID without querying, 
+
+        // Should have the same ID as the original gig (we can't easily know the ID without querying,
         // but we can check total count didn't increase)
-        
         using (var scope = _factory.Services.CreateScope())
         {
             var db = scope.ServiceProvider.GetRequiredService<Database>();
             var totalGigs = await db.Gig.CountAsync();
             Assert.Equal(15, totalGigs); // Should still be 15, not 16
-            
+
             var updatedGig = await db.Gig.Include(g => g.Acts).ThenInclude(a => a.Songs).ThenInclude(s => s.Song).FirstAsync(g => g.Id == result.Id);
             Assert.Equal(TicketType.VIP, updatedGig.TicketType);
             Assert.Equal("http://new-image.com", updatedGig.ImageUrl);

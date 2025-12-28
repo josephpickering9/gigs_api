@@ -1,15 +1,16 @@
 using System.Text.RegularExpressions;
+using Gigs.DataModels;
+using Gigs.Models;
+using Gigs.Types;
 using Google.Apis.Auth.OAuth2;
 using Google.Apis.Calendar.v3;
 using Google.Apis.Calendar.v3.Data;
 using Google.Apis.Services;
-using Gigs.DTOs;
-using Gigs.Models;
 using Microsoft.EntityFrameworkCore;
 
 namespace Gigs.Services.Calendar;
 
-public class GoogleCalendarService : IGoogleCalendarService
+public class GoogleCalendarService : IDisposable
 {
     private readonly IConfiguration _configuration;
     private readonly Database _db;
@@ -26,11 +27,9 @@ public class GoogleCalendarService : IGoogleCalendarService
     {
         GoogleCredential credential;
 
-        // Try to load from calendar-specific credentials first
         var credentialsJson = _configuration["GoogleCalendar:CredentialsJson"];
         var credentialsFile = _configuration["GoogleCalendar:CredentialsFile"];
 
-        // Fall back to VertexAI credentials if calendar-specific ones aren't set
         if (string.IsNullOrWhiteSpace(credentialsJson))
         {
             credentialsJson = _configuration["VertexAi:CredentialsJson"];
@@ -69,102 +68,118 @@ public class GoogleCalendarService : IGoogleCalendarService
         });
     }
 
-    public async Task<List<CalendarEventDto>> GetCalendarEventsAsync(DateTime? startDate = null, DateTime? endDate = null)
+    public async Task<Result<List<GetCalendarEventResponse>>> GetCalendarEventsAsync(DateTime? startDate = null, DateTime? endDate = null)
     {
-        var calendarId = _configuration["GoogleCalendar:CalendarId"] ?? "primary";
-
-        var request = _calendarService.Events.List(calendarId);
-        request.TimeMinDateTimeOffset = startDate ?? DateTime.UtcNow.AddYears(-5);
-        request.TimeMaxDateTimeOffset = endDate ?? DateTime.UtcNow;
-        request.SingleEvents = true;
-        request.OrderBy = EventsResource.ListRequest.OrderByEnum.StartTime;
-        request.MaxResults = 2500;
-
-        var events = await request.ExecuteAsync();
-        var eventDtos = new List<CalendarEventDto>();
-
-        foreach (var calendarEvent in events.Items ?? [])
+        try
         {
-            if (calendarEvent.Start?.DateTimeDateTimeOffset == null && calendarEvent.Start?.Date == null)
-                continue;
+            var calendarId = _configuration["GoogleCalendar:CalendarId"] ?? "primary";
 
-            var startDateTime = calendarEvent.Start.DateTimeDateTimeOffset?.DateTime ?? DateTime.Parse(calendarEvent.Start.Date!);
+            var request = _calendarService.Events.List(calendarId);
+            request.TimeMinDateTimeOffset = startDate ?? DateTime.UtcNow.AddYears(-5);
+            request.TimeMaxDateTimeOffset = endDate ?? DateTime.UtcNow;
+            request.SingleEvents = true;
+            request.OrderBy = EventsResource.ListRequest.OrderByEnum.StartTime;
+            request.MaxResults = 2500;
 
-            eventDtos.Add(new CalendarEventDto
+            var events = await request.ExecuteAsync();
+            var eventDtos = new List<GetCalendarEventResponse>();
+
+            foreach (var calendarEvent in events.Items ??[])
             {
-                Id = calendarEvent.Id,
-                Title = calendarEvent.Summary ?? "Untitled Event",
-                StartDateTime = startDateTime,
-                EndDateTime = calendarEvent.End?.DateTimeDateTimeOffset?.DateTime ?? (calendarEvent.End?.Date != null ? DateTime.Parse(calendarEvent.End.Date) : null),
-                Location = calendarEvent.Location,
-                Description = calendarEvent.Description
-            });
-        }
+                if (calendarEvent.Start?.DateTimeDateTimeOffset == null && calendarEvent.Start?.Date == null)
+                    continue;
 
-        return eventDtos;
+                var startDateTime = calendarEvent.Start.DateTimeDateTimeOffset?.DateTime ?? DateTime.Parse(calendarEvent.Start.Date!);
+
+                eventDtos.Add(new GetCalendarEventResponse
+                {
+                    Id = calendarEvent.Id,
+                    Title = calendarEvent.Summary ?? "Untitled Event",
+                    StartDateTime = startDateTime,
+                    EndDateTime = calendarEvent.End?.DateTimeDateTimeOffset?.DateTime ?? (calendarEvent.End?.Date != null ? DateTime.Parse(calendarEvent.End.Date) : null),
+                    Location = calendarEvent.Location,
+                    Description = calendarEvent.Description
+                });
+            }
+
+            return eventDtos.ToSuccess();
+        }
+        catch (Exception ex)
+        {
+            return Result.Fail<List<GetCalendarEventResponse>>($"Error fetching calendar events: {ex.Message}");
+        }
     }
 
-    public async Task<ImportCalendarEventsResponse> ImportEventsAsGigsAsync(DateTime? startDate = null, DateTime? endDate = null)
+    public async Task<Result<ImportCalendarEventsResponse>> ImportEventsAsGigsAsync(DateTime? startDate = null, DateTime? endDate = null)
     {
-        var events = await GetCalendarEventsAsync(startDate, endDate);
-
-        int created = 0;
-        int updated = 0;
-        int skipped = 0;
-        int venuesAtStart = await _db.Venue.CountAsync();
-
-        foreach (var calendarEvent in events)
+        try
         {
-            try
+            var eventsResult = await GetCalendarEventsAsync(startDate, endDate);
+            if (!eventsResult.IsSuccess)
             {
-                var result = await ProcessCalendarEventAsync(calendarEvent);
-                if (result.HasValue)
-                {
-                    // Save changes after each event to avoid concurrency issues
-                    await _db.SaveChangesAsync();
+                return Result.Fail<ImportCalendarEventsResponse>(eventsResult.Error?.Message ?? "Failed to fetch events");
+            }
 
-                    if (result.Value)
-                        created++;
+            var events = eventsResult.Data!;
+
+            int created = 0;
+            int updated = 0;
+            int skipped = 0;
+            int venuesAtStart = await _db.Venue.CountAsync();
+
+            foreach (var calendarEvent in events)
+            {
+                try
+                {
+                    var result = await ProcessCalendarEventAsync(calendarEvent);
+                    if (result.HasValue)
+                    {
+                        await _db.SaveChangesAsync();
+
+                        if (result.Value)
+                            created++;
+                        else
+                            updated++;
+                    }
                     else
-                        updated++;
+                    {
+                        skipped++;
+                    }
                 }
-                else
+                catch (DbUpdateConcurrencyException)
                 {
                     skipped++;
+                    continue;
                 }
             }
-            catch (DbUpdateConcurrencyException)
+
+            int venuesCreated = await _db.Venue.CountAsync() - venuesAtStart;
+
+            return new ImportCalendarEventsResponse
             {
-                // Skip this event and continue - likely a duplicate or concurrent modification
-                skipped++;
-                continue;
-            }
+                EventsFound = events.Count,
+                GigsCreated = created,
+                GigsUpdated = updated,
+                EventsSkipped = skipped,
+                VenuesCreated = venuesCreated,
+                Message = $"Processed {events.Count} events: {created} created, {updated} updated, {skipped} skipped, {venuesCreated} venues created"
+            }.ToSuccess();
         }
-
-        int venuesCreated = await _db.Venue.CountAsync() - venuesAtStart;
-
-        return new ImportCalendarEventsResponse
+        catch (Exception ex)
         {
-            EventsFound = events.Count,
-            GigsCreated = created,
-            GigsUpdated = updated,
-            EventsSkipped = skipped,
-            VenuesCreated = venuesCreated,
-            Message = $"Processed {events.Count} events: {created} created, {updated} updated, {skipped} skipped, {venuesCreated} venues created"
-        };
+            return Result.Fail<ImportCalendarEventsResponse>($"Error importing calendar events: {ex.Message}");
+        }
     }
 
-    private async Task<bool?> ProcessCalendarEventAsync(CalendarEventDto calendarEvent)
+    private async Task<bool?> ProcessCalendarEventAsync(GetCalendarEventResponse getCalendarEvent)
     {
-        // Parse the event to extract gig information
-        var gigInfo = await ParseCalendarEvent(calendarEvent);
+        var gigInfo = await ParseCalendarEvent(getCalendarEvent);
 
         if (gigInfo == null)
         {
-            return null; // Event doesn't match an existing venue = not a gig
+            return null;
         }
 
-        // Check if gig already exists
         var existingGig = await _db.Gig
             .Include(g => g.Acts)
             .FirstOrDefaultAsync(g => g.Date == gigInfo.Date && g.VenueId == gigInfo.Venue.Id);
@@ -180,20 +195,14 @@ public class GoogleCalendarService : IGoogleCalendarService
                 Slug = Guid.NewGuid().ToString()
             };
             _db.Gig.Add(existingGig);
-            
-            // Save the new gig first so it gets an ID
-            await _db.SaveChangesAsync();
         }
 
         // Update gig details
         if (gigInfo.TicketCost.HasValue)
             existingGig.TicketCost = gigInfo.TicketCost;
 
-        // Only update artists if the gig is new OR if it has no artists attached
-        // This preserves manual edits made to gigs after they were imported
         if (isNew || !existingGig.Acts.Any())
         {
-            // Clear existing acts - delete them directly to avoid tracking issues
             if (!isNew)
             {
                 var existingActIds = await _db.GigArtist
@@ -208,12 +217,11 @@ public class GoogleCalendarService : IGoogleCalendarService
                         .ExecuteDeleteAsync();
                 }
 
-                // Clear the navigation property
                 existingGig.Acts.Clear();
             }
 
-            // Add headliner
             var headlinerArtist = await GetOrCreateArtistAsync(gigInfo.ArtistName);
+
             var headlinerGigArtist = new GigArtist
             {
                 GigId = existingGig.Id,
@@ -223,7 +231,6 @@ public class GoogleCalendarService : IGoogleCalendarService
             };
             _db.GigArtist.Add(headlinerGigArtist);
 
-            // Add support acts if any
             int order = 1;
             foreach (var supportName in gigInfo.SupportActs)
             {
@@ -242,87 +249,70 @@ public class GoogleCalendarService : IGoogleCalendarService
         return isNew;
     }
 
-    private async Task<GigInfo?> ParseCalendarEvent(CalendarEventDto calendarEvent)
+    private async Task<GigInfo?> ParseCalendarEvent(GetCalendarEventResponse getCalendarEvent)
     {
-        // STRICT matching: Only import if event name matches an artist OR location matches a venue
-        // This prevents non-gig events from being imported
-        
-        var title = calendarEvent.Title.Trim();
-        var location = calendarEvent.Location?.Trim();
-        var description = calendarEvent.Description?.Trim();
+        var title = getCalendarEvent.Title.Trim();
+
+        var location = getCalendarEvent.Location?.Trim();
+        var description = getCalendarEvent.Description?.Trim();
 
         Venue? venue = null;
         Artist? matchedArtist = null;
-        
-        // Strategy 1: Check if event title matches an existing artist (EXACT match)
+
         if (!string.IsNullOrWhiteSpace(title))
         {
-            // Try exact match first
             matchedArtist = await _db.Artist.FirstOrDefaultAsync(a => a.Name.ToLower() == title.ToLower());
-            
+
             if (matchedArtist == null)
             {
-                // Try removing common suffixes for artist matching
                 var cleanedTitle = title
-                    .Replace(" (Live)", "", StringComparison.OrdinalIgnoreCase)
-                    .Replace(" - Live", "", StringComparison.OrdinalIgnoreCase)
+
+                    .Replace(" (Live)", string.Empty, StringComparison.OrdinalIgnoreCase)
+                    .Replace(" - Live", string.Empty, StringComparison.OrdinalIgnoreCase)
                     .Trim();
-                    
+
                 matchedArtist = await _db.Artist.FirstOrDefaultAsync(a => a.Name.ToLower() == cleanedTitle.ToLower());
             }
-            
-            // If title has "@ " pattern, try matching the part before "@"
+
             if (matchedArtist == null && title.Contains(" @ "))
             {
                 var artistPart = title.Split(" @ ")[0].Trim();
                 matchedArtist = await _db.Artist.FirstOrDefaultAsync(a => a.Name.ToLower() == artistPart.ToLower());
             }
         }
-        
-        // Strategy 2: Check if location matches an existing venue (EXACT or START match only)
+
         if (!string.IsNullOrWhiteSpace(location))
         {
             var locationParts = location.Split(',').Select(p => p.Trim()).ToArray();
 
-            // Try exact match of full location
             venue = await _db.Venue.FirstOrDefaultAsync(v => v.Name.ToLower() == location.ToLower());
 
-            // If not found, try first part (venue name) exactly
             if (venue == null && locationParts.Length > 0)
             {
                 var venueName = locationParts[0];
                 venue = await _db.Venue.FirstOrDefaultAsync(v => v.Name.ToLower() == venueName.ToLower());
 
-                // If still not found, try matching with city
                 if (venue == null && locationParts.Length > 1)
                 {
                     var city = locationParts[^1];
-                    venue = await _db.Venue.FirstOrDefaultAsync(v => 
+                    venue = await _db.Venue.FirstOrDefaultAsync(v =>
                         v.Name.ToLower() == venueName.ToLower() && v.City.ToLower() == city.ToLower());
                 }
             }
         }
 
-        // CRITICAL: Only proceed if we matched EITHER an artist OR a venue
-        // If neither matched, this is NOT a gig
         if (matchedArtist == null && venue == null)
         {
-            return null; // Neither artist nor venue matched = not a gig
-        }
-        
-        // If we matched an artist but no venue, we need a location to continue
-        if (matchedArtist != null && venue == null)
-        {
-            // Artist matched but no venue - skip this event
-            // We can't create a gig without a venue
             return null;
         }
 
-        // At this point, we have a venue (and maybe a matched artist)
-        // Parse artist name from title if we didn't match one already
+        if (matchedArtist != null && venue == null)
+        {
+            return null;
+        }
+
         var artistName = title;
-        
-        // Only try to clean venue references if they're clearly demarcated
+
         if (title.Contains(" @ "))
         {
             artistName = title.Split(" @ ")[0].Trim();
@@ -331,20 +321,17 @@ public class GoogleCalendarService : IGoogleCalendarService
         {
             artistName = title.Split(" at ")[0].Trim();
         }
-        
-        // If we ended up with an empty string, use the full title
+
         if (string.IsNullOrWhiteSpace(artistName))
         {
             artistName = title;
         }
 
-        // Parse description for support acts and ticket cost
-        List<string> supportActs = new();
+        List<string> supportActs = new ();
         decimal? ticketCost = null;
 
         if (!string.IsNullOrWhiteSpace(description))
         {
-            // Look for support acts
             var supportMatch = Regex.Match(description, @"support:?\s*(.+)", RegexOptions.IgnoreCase);
             if (supportMatch.Success)
             {
@@ -352,7 +339,6 @@ public class GoogleCalendarService : IGoogleCalendarService
                 supportActs.AddRange(supports);
             }
 
-            // Look for ticket cost
             var costMatch = Regex.Match(description, @"[£$]\s*(\d+(?:\.\d{2})?)", RegexOptions.IgnoreCase);
             if (costMatch.Success && decimal.TryParse(costMatch.Groups[1].Value, out var cost))
             {
@@ -364,7 +350,7 @@ public class GoogleCalendarService : IGoogleCalendarService
         {
             ArtistName = artistName,
             Venue = venue,
-            Date = DateOnly.FromDateTime(calendarEvent.StartDateTime),
+            Date = DateOnly.FromDateTime(getCalendarEvent.StartDateTime),
             SupportActs = supportActs,
             TicketCost = ticketCost
         };
@@ -387,6 +373,7 @@ public class GoogleCalendarService : IGoogleCalendarService
             };
             _db.Artist.Add(artist);
         }
+
         return artist;
     }
 
@@ -395,7 +382,12 @@ public class GoogleCalendarService : IGoogleCalendarService
         public string ArtistName { get; set; } = null!;
         public Venue Venue { get; set; } = null!;
         public DateOnly Date { get; set; }
-        public List<string> SupportActs { get; set; } = new();
+        public List<string> SupportActs { get; set; } = new ();
         public decimal? TicketCost { get; set; }
+    }
+
+    public void Dispose()
+    {
+        _calendarService.Dispose();
     }
 }

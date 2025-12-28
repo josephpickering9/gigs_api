@@ -1,39 +1,32 @@
-using Microsoft.AspNetCore.Mvc;
+using Gigs.DataModels;
 using Gigs.Services;
-using Gigs.DTOs;
 using Gigs.Types;
+using Microsoft.AspNetCore.Mvc;
 
 namespace Gigs.Controllers;
 
 [ApiController]
 [Route("api/[controller]s")]
-public class VenueController(IVenueService venueService) : ControllerBase
+public class VenueController(VenueService venueService): ControllerBase
 {
     [HttpGet]
     public async Task<ActionResult<List<GetVenueResponse>>> GetAll()
     {
-        var venues = await venueService.GetAllAsync();
-        return Ok(venues);
+        var result = await venueService.GetAllAsync();
+        return result.ToResponse();
     }
 
     [HttpPost("{id}/enrich")]
     public async Task<ActionResult<GetVenueResponse>> EnrichVenue(VenueId id)
     {
-        try
-        {
-            var venue = await venueService.EnrichVenueAsync(id);
-            return Ok(venue);
-        }
-        catch (KeyNotFoundException ex)
-        {
-            return NotFound(ex.Message);
-        }
+        var result = await venueService.EnrichVenueAsync(id);
+        return result.ToResponse();
     }
 
     [HttpPost("enrich-all")]
     public async Task<ActionResult<int>> EnrichAllVenues()
     {
-        var count = await venueService.EnrichAllVenuesAsync();
-        return Ok(count);
+        var result = await venueService.EnrichAllVenuesAsync();
+        return result.ToResponse();
     }
 }

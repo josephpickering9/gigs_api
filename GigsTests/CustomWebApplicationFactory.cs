@@ -39,15 +39,22 @@ public class CustomWebApplicationFactory<TProgram> : WebApplicationFactory<TProg
                 options.UseInMemoryDatabase(dbName);
             });
 
-            var aiServiceDescriptor = services.SingleOrDefault(d => d.ServiceType == typeof(IAiEnrichmentService));
+            var aiServiceDescriptor = services.SingleOrDefault(d => d.ServiceType == typeof(AiEnrichmentService));
             if (aiServiceDescriptor != null)
             {
                 services.Remove(aiServiceDescriptor);
             }
 
-            var mockAiService = new Mock<IAiEnrichmentService>();
+            var mockConfig = new Mock<Microsoft.Extensions.Configuration.IConfiguration>();
+            var mockConfigSection = new Mock<Microsoft.Extensions.Configuration.IConfigurationSection>();
+            mockConfigSection.Setup(x => x.Value).Returns("dummy-project-id");
+            mockConfig.Setup(x => x[It.Is<string>(s => s == "VertexAi:ProjectId")]).Returns("dummy-project-id");
+
+            var mockAiService = new Mock<AiEnrichmentService>(
+                mockConfig.Object,
+                Mock.Of<Microsoft.Extensions.Logging.ILogger<AiEnrichmentService>>());
             mockAiService.Setup(x => x.EnrichGig(It.IsAny<Gig>()))
-                .ReturnsAsync(new AiEnrichmentResult());
+                .ReturnsAsync(new Gigs.Types.Success<AiEnrichmentResult>(new AiEnrichmentResult()));
             services.AddScoped(_ => mockAiService.Object);
         });
 

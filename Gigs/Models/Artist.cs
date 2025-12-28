@@ -5,13 +5,16 @@ namespace Gigs.Models;
 
 public class Artist
 {
-    [Required] public ArtistId Id { get; set; } = ArtistId.New();
+    [Required]
+    public ArtistId Id { get; set; } = ArtistId.New();
 
-    [Required] public string Name { get; set; } = null!;
+    [Required]
+    public string Name { get; set; } = null!;
 
     public string? ImageUrl { get; set; }
 
-    [Required] public string Slug { get; set; } = Guid.NewGuid().ToString();
+    [Required]
+    public string Slug { get; set; } = Guid.NewGuid().ToString();
 
-    public List<GigArtist> Gigs { get; set; } = [];
+    public List<GigArtist> Gigs { get; set; } =[];
 }

@@ -1,11 +1,11 @@
-using Microsoft.EntityFrameworkCore;
 using Gigs.Models;
 using Gigs.Types;
 using Gigs.Utils;
+using Microsoft.EntityFrameworkCore;
 
 namespace Gigs.Services;
 
-public class Database(DbContextOptions<Database> options) : DbContext(options)
+public class Database(DbContextOptions<Database> options): DbContext(options)
 {
     public DbSet<Gig> Gig { get; set; }
     public DbSet<Artist> Artist { get; set; }
@@ -47,7 +47,7 @@ public class Database(DbContextOptions<Database> options) : DbContext(options)
         modelBuilder.Entity<Festival>()
             .Property(e => e.Id).HasGuidIdConversion().ValueGeneratedOnAdd();
         modelBuilder.Entity<Festival>().HasIndex(b => b.Slug).IsUnique();
-        
+
         // Person
         modelBuilder.Entity<Person>()
             .Property(e => e.Id).HasGuidIdConversion().ValueGeneratedOnAdd();

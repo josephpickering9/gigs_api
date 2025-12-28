@@ -5,7 +5,7 @@ namespace Gigs.Controllers;
 
 [ApiController]
 [Route("[controller]")]
-public class MediaController(IImageService imageService) : ControllerBase
+public class MediaController(ImageService imageService): ControllerBase
 {
     [HttpGet("uploads/{fileName}")]
     public IActionResult GetFile(string fileName)

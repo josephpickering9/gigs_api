@@ -10,6 +10,7 @@ public static class JsonElementExtensions
         {
             return value;
         }
+
         return null;
     }
 }

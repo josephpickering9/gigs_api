@@ -1,51 +1,52 @@
 using System.Text.Json.Serialization;
 using Auth0.AspNetCore.Authentication;
 using dotenv.net;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.AspNetCore.Diagnostics;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.OpenApi.Models;
 using Gigs.Exceptions;
 using Gigs.Filters;
 using Gigs.Services;
 using Gigs.Services.Image;
 using Gigs.Types;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Diagnostics;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.OpenApi.Models;
 
 DotEnv.Load();
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddDbContext<Database>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection"), o => o.CommandTimeout(300))
-);
+    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection"), o => o.CommandTimeout(300)));
 
 builder.Services.AddHttpContextAccessor();
-builder.Services.AddScoped<IFileService, FileService>();
-builder.Services.AddScoped<IImageService, ImageService>();
+builder.Services.AddScoped<FileService>();
+builder.Services.AddScoped<ImageService>();
 builder.Services.AddHttpClient();
 
 // Repositories
-builder.Services.AddScoped<Gigs.Repositories.IGigRepository, Gigs.Repositories.GigRepository>();
-builder.Services.AddScoped<Gigs.Repositories.IArtistRepository, Gigs.Repositories.ArtistRepository>();
-builder.Services.AddScoped<Gigs.Repositories.IVenueRepository, Gigs.Repositories.VenueRepository>();
-builder.Services.AddScoped<Gigs.Repositories.IDashboardRepository, Gigs.Repositories.DashboardRepository>();
-builder.Services.AddScoped<Gigs.Repositories.IFestivalRepository, Gigs.Repositories.FestivalRepository>();
+builder.Services.AddScoped<Gigs.Repositories.GigRepository>();
+builder.Services.AddScoped<Gigs.Repositories.ArtistRepository>();
+builder.Services.AddScoped<Gigs.Repositories.VenueRepository>();
+builder.Services.AddScoped<Gigs.Repositories.DashboardRepository>();
+builder.Services.AddScoped<Gigs.Repositories.FestivalRepository>();
+builder.Services.AddScoped<Gigs.Repositories.PersonRepository>();
+builder.Services.AddScoped<Gigs.Repositories.SongRepository>();
 
 // Services
-builder.Services.AddScoped<IGigService, GigService>();
-builder.Services.AddScoped<IArtistService, ArtistService>();
-builder.Services.AddScoped<IVenueService, VenueService>();
-builder.Services.AddScoped<IFestivalService, FestivalService>();
-builder.Services.AddScoped<ICsvImportService, CsvImportService>();
-builder.Services.AddScoped<IDashboardService, DashboardService>();
-builder.Services.AddScoped<Gigs.Services.AI.IAiEnrichmentService, Gigs.Services.AI.AiEnrichmentService>();
-builder.Services.AddScoped<Gigs.Services.Calendar.IGoogleCalendarService, Gigs.Services.Calendar.GoogleCalendarService>();
-builder.Services.AddScoped<Gigs.Services.External.ISpotifyService, Gigs.Services.External.SpotifyService>();
+builder.Services.AddScoped<GigService>();
+builder.Services.AddScoped<ArtistService>();
+builder.Services.AddScoped<VenueService>();
+builder.Services.AddScoped<FestivalService>();
+builder.Services.AddScoped<CsvImportService>();
+builder.Services.AddScoped<DashboardService>();
+builder.Services.AddScoped<Gigs.Services.AI.AiEnrichmentService>();
+builder.Services.AddScoped<Gigs.Services.Calendar.GoogleCalendarService>();
+builder.Services.AddScoped<Gigs.Services.External.SpotifyService>();
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
-    c.SwaggerDoc("v1", new OpenApiInfo { Title = "Gigs API", Version = "" });
+    c.SwaggerDoc("v1", new OpenApiInfo { Title = "Gigs API", Version = string.Empty });
 
     c.OperationFilter<SwaggerFileOperationFilter>();
     c.SchemaFilter<EnumDescriptionSchemaFilter>();
@@ -59,7 +60,6 @@ builder.Services.AddSwaggerGen(c =>
     c.MapType<GigArtistId>(() => new OpenApiSchema { Type = "string", Format = "uuid" });
     c.MapType<SongId>(() => new OpenApiSchema { Type = "string", Format = "uuid" });
     c.MapType<FestivalId>(() => new OpenApiSchema { Type = "string", Format = "uuid" });
-
 });
 builder.Services.AddControllers()
     .AddJsonOptions(options =>
@@ -83,8 +83,8 @@ builder.Services.AddCors(options =>
 builder.Services.AddAuthorization();
 builder.Services.AddAuth0WebAppAuthentication(options =>
 {
-    options.Domain = builder.Configuration["Auth0:Domain"] ?? "";
-    options.ClientId = builder.Configuration["Auth0:ClientId"] ?? "";
+    options.Domain = builder.Configuration["Auth0:Domain"] ?? string.Empty;
+    options.ClientId = builder.Configuration["Auth0:ClientId"] ?? string.Empty;
 });
 builder.Services.AddAuthentication(options =>
 {

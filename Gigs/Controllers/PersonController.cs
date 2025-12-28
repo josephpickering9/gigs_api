@@ -1,15 +1,15 @@
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using Gigs.DTOs;
+using Gigs.DataModels;
 using Gigs.Models;
 using Gigs.Services;
 using Gigs.Types;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace Gigs.Controllers;
 
 [ApiController]
 [Route("api/[controller]s")]
-public class PersonController(Database db) : ControllerBase
+public class PersonController(Database db): ControllerBase
 {
     [HttpGet]
     public async Task<ActionResult<List<GetPersonResponse>>> GetAll()
@@ -23,7 +23,7 @@ public class PersonController(Database db) : ControllerBase
                 Slug = p.Slug
             })
             .ToListAsync();
-        
+
         return Ok(people);
     }
 
@@ -31,7 +31,7 @@ public class PersonController(Database db) : ControllerBase
     public async Task<ActionResult<GetPersonResponse>> GetById(PersonId id)
     {
         var person = await db.Person.FindAsync(id);
-        
+
         if (person == null)
         {
             return NotFound($"Person with ID {id} not found.");
@@ -51,7 +51,7 @@ public class PersonController(Database db) : ControllerBase
         // Check if person with same name already exists
         var existing = await db.Person
             .FirstOrDefaultAsync(p => p.Name.ToLower() == request.Name.ToLower());
-        
+
         if (existing != null)
         {
             return Conflict($"A person with the name '{request.Name}' already exists.");
@@ -80,7 +80,7 @@ public class PersonController(Database db) : ControllerBase
     public async Task<ActionResult<GetPersonResponse>> Update(PersonId id, UpsertPersonRequest request)
     {
         var person = await db.Person.FindAsync(id);
-        
+
         if (person == null)
         {
             return NotFound($"Person with ID {id} not found.");
@@ -89,7 +89,7 @@ public class PersonController(Database db) : ControllerBase
         // Check if another person with same name exists
         var existing = await db.Person
             .FirstOrDefaultAsync(p => p.Name.ToLower() == request.Name.ToLower() && p.Id != id);
-        
+
         if (existing != null)
         {
             return Conflict($"Another person with the name '{request.Name}' already exists.");
@@ -110,7 +110,7 @@ public class PersonController(Database db) : ControllerBase
     public async Task<ActionResult> Delete(PersonId id)
     {
         var person = await db.Person.FindAsync(id);
-        
+
         if (person == null)
         {
             return NotFound($"Person with ID {id} not found.");

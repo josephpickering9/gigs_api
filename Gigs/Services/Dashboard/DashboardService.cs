@@ -1,77 +1,78 @@
-using Gigs.DTOs;
+using Gigs.DataModels;
 using Gigs.Repositories;
+using Gigs.Types;
 
 namespace Gigs.Services;
 
-public class DashboardService(IDashboardRepository dashboardRepository) : IDashboardService
+public class DashboardService(DashboardRepository dashboardRepository)
 {
-    public async Task<DashboardStatsResponse> GetDashboardStatsAsync()
+    public async Task<Result<DashboardStatsResponse>> GetDashboardStatsAsync()
     {
-        return await dashboardRepository.GetDashboardStatsAsync();
+        return (await dashboardRepository.GetDashboardStatsAsync()).ToSuccess();
     }
 
-    public async Task<List<AverageTicketPriceByYearResponse>> GetAverageTicketPriceByYearAsync()
+    public async Task<Result<List<AverageTicketPriceByYearResponse>>> GetAverageTicketPriceByYearAsync()
     {
-        return await dashboardRepository.GetAverageTicketPriceByYearAsync();
+        return (await dashboardRepository.GetAverageTicketPriceByYearAsync()).ToSuccess();
     }
 
-    public async Task<List<GigsPerYearResponse>> GetGigsPerYearAsync()
+    public async Task<Result<List<GigsPerYearResponse>>> GetGigsPerYearAsync()
     {
-        return await dashboardRepository.GetGigsPerYearAsync();
+        return (await dashboardRepository.GetGigsPerYearAsync()).ToSuccess();
     }
 
-    public async Task<List<GigsPerMonthResponse>> GetGigsPerMonthAsync()
+    public async Task<Result<List<GigsPerMonthResponse>>> GetGigsPerMonthAsync()
     {
-        return await dashboardRepository.GetGigsPerMonthAsync();
+        return (await dashboardRepository.GetGigsPerMonthAsync()).ToSuccess();
     }
 
-    public async Task<TemporalStatsResponse> GetTemporalStatsAsync()
+    public async Task<Result<TemporalStatsResponse>> GetTemporalStatsAsync()
     {
-        return await dashboardRepository.GetTemporalStatsAsync();
+        return (await dashboardRepository.GetTemporalStatsAsync()).ToSuccess();
     }
 
-    public async Task<ArtistInsightsResponse> GetArtistInsightsAsync()
+    public async Task<Result<ArtistInsightsResponse>> GetArtistInsightsAsync()
     {
-        return await dashboardRepository.GetArtistInsightsAsync();
+        return (await dashboardRepository.GetArtistInsightsAsync()).ToSuccess();
     }
 
-    public async Task<List<TopArtistResponse>> GetTopArtistsAsync(int limit = 10)
+    public async Task<Result<List<TopArtistResponse>>> GetTopArtistsAsync(int limit = 10)
     {
-        return await dashboardRepository.GetTopArtistsAsync(limit);
+        return (await dashboardRepository.GetTopArtistsAsync(limit)).ToSuccess();
     }
 
-    public async Task<VenueInsightsResponse> GetVenueInsightsAsync()
+    public async Task<Result<VenueInsightsResponse>> GetVenueInsightsAsync()
     {
-        return await dashboardRepository.GetVenueInsightsAsync();
+        return (await dashboardRepository.GetVenueInsightsAsync()).ToSuccess();
     }
 
-    public async Task<List<TopVenueResponse>> GetTopVenuesAsync(int limit = 10)
+    public async Task<Result<List<TopVenueResponse>>> GetTopVenuesAsync(int limit = 10)
     {
-        return await dashboardRepository.GetTopVenuesAsync(limit);
+        return (await dashboardRepository.GetTopVenuesAsync(limit)).ToSuccess();
     }
 
-    public async Task<List<TopCityResponse>> GetTopCitiesAsync(int limit = 10)
+    public async Task<Result<List<TopCityResponse>>> GetTopCitiesAsync(int limit = 10)
     {
-        return await dashboardRepository.GetTopCitiesAsync(limit);
+        return (await dashboardRepository.GetTopCitiesAsync(limit)).ToSuccess();
     }
 
-    public async Task<InterestingInsightsResponse> GetInterestingInsightsAsync()
+    public async Task<Result<InterestingInsightsResponse>> GetInterestingInsightsAsync()
     {
-        return await dashboardRepository.GetInterestingInsightsAsync();
+        return (await dashboardRepository.GetInterestingInsightsAsync()).ToSuccess();
     }
 
-    public async Task<List<MostHeardSongResponse>> GetMostHeardSongsAsync(int limit = 10)
+    public async Task<Result<List<MostHeardSongResponse>>> GetMostHeardSongsAsync(int limit = 10)
     {
-        return await dashboardRepository.GetMostHeardSongsAsync(limit);
+        return (await dashboardRepository.GetMostHeardSongsAsync(limit)).ToSuccess();
     }
 
-    public async Task<AttendeeInsightsResponse> GetAttendeeInsightsAsync()
+    public async Task<Result<AttendeeInsightsResponse>> GetAttendeeInsightsAsync()
     {
-        return await dashboardRepository.GetAttendeeInsightsAsync();
+        return (await dashboardRepository.GetAttendeeInsightsAsync()).ToSuccess();
     }
 
-    public async Task<List<TopAttendeeResponse>> GetTopAttendeesAsync(int limit = 10)
+    public async Task<Result<List<TopAttendeeResponse>>> GetTopAttendeesAsync(int limit = 10)
     {
-        return await dashboardRepository.GetTopAttendeesAsync(limit);
+        return (await dashboardRepository.GetTopAttendeesAsync(limit)).ToSuccess();
     }
 }

@@ -2,61 +2,66 @@ using System.Globalization;
 using CsvHelper;
 using CsvHelper.Configuration;
 using CsvHelper.Configuration.Attributes;
-using Gigs.DTOs;
+using Gigs.DataModels;
 using Gigs.Models;
+using Gigs.Repositories;
 using Gigs.Types;
-using Microsoft.EntityFrameworkCore;
 
 namespace Gigs.Services;
 
-public class CsvImportService(Database db, IGigService gigService) : ICsvImportService
+public class CsvImportService(ArtistRepository artistRepository, GigService gigService)
 {
-    public async Task<int> ImportGigsAsync(Stream csvStream)
+    public async Task<Result<int>> ImportGigsAsync(Stream csvStream)
     {
-        using var reader = new StreamReader(csvStream);
-        using var csv = new CsvReader(reader, new CsvConfiguration(CultureInfo.InvariantCulture)
+        try
         {
-            HasHeaderRecord = true,
-            HeaderValidated = null,
-            MissingFieldFound = null
-        });
-
-        var records = csv.GetRecords<CsvGigRecord>();
-        var count = 0;
-
-        foreach (var record in records)
-        {
-            if (record.Date == null || string.IsNullOrWhiteSpace(record.Headliner) || string.IsNullOrWhiteSpace(record.Venue))
+            using var reader = new StreamReader(csvStream);
+            using var csv = new CsvReader(reader, new CsvConfiguration(CultureInfo.InvariantCulture)
             {
-                continue;
+                HasHeaderRecord = true,
+                HeaderValidated = null,
+                MissingFieldFound = null
+            });
+
+            var records = csv.GetRecords<CsvGigRecord>();
+            var count = 0;
+
+            foreach (var record in records)
+            {
+                if (record.Date == null || string.IsNullOrWhiteSpace(record.Headliner) || string.IsNullOrWhiteSpace(record.Venue))
+                {
+                    continue;
+                }
+
+                try
+                {
+                    await ProcessRecordAsync(record);
+                    count++;
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Error processing record {record.Headliner} @ {record.Venue}: {ex.Message}");
+                }
             }
 
-            try
-            {
-                await ProcessRecordAsync(record);
-                count++;
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error processing record {record.Headliner} @ {record.Venue}: {ex.Message}");
-                // throw; // Optionally suppress individual errors to allow partial import
-            }
+            return count.ToSuccess();
         }
-
-        return count;
+        catch (Exception ex)
+        {
+            return Result.Fail<int>($"Error importing gigs from CSV: {ex.Message}");
+        }
     }
 
     private async Task ProcessRecordAsync(CsvGigRecord record)
     {
         if (string.IsNullOrWhiteSpace(record.Venue) || string.IsNullOrWhiteSpace(record.City))
         {
-             return;
+            return;
         }
 
         var actsRequest = new List<GigArtistRequest>();
 
-        // 1. Headliner
-        var headlinerId = await GetOrCreateArtistIdAsync(record.Headliner!);
+        var headlinerId = await artistRepository.GetOrCreateAsync(record.Headliner!);
         actsRequest.Add(new GigArtistRequest
         {
             ArtistId = headlinerId,
@@ -65,14 +70,13 @@ public class CsvImportService(Database db, IGigService gigService) : ICsvImportS
             SetlistUrl = record.SetlistUrl
         });
 
-        // 2. Support Acts
         if (!string.IsNullOrWhiteSpace(record.SupportActs))
         {
             var supports = SplitWithAmpersandKeep(record.SupportActs);
             var order = 1;
             foreach (var s in supports)
             {
-                var supportId = await GetOrCreateArtistIdAsync(s);
+                var supportId = await artistRepository.GetOrCreateAsync(s);
                 actsRequest.Add(new GigArtistRequest
                 {
                     ArtistId = supportId,
@@ -82,7 +86,6 @@ public class CsvImportService(Database db, IGigService gigService) : ICsvImportS
             }
         }
 
-        // 3. Attendees
         var attendees = new List<string>();
         if (!string.IsNullOrWhiteSpace(record.WentWith))
         {
@@ -96,35 +99,13 @@ public class CsvImportService(Database db, IGigService gigService) : ICsvImportS
             Date = record.Date!.Value,
             TicketCost = ParseCurrency(record.TicketCost),
             TicketType = ParseTicketType(record.TicketType),
-            ImageUrl = null, // CSV doesn't seem to have image URL
+            ImageUrl = null,
+
             Acts = actsRequest,
             Attendees = attendees
         };
 
         await gigService.CreateAsync(request);
-    }
-
-    private async Task<ArtistId> GetOrCreateArtistIdAsync(string name)
-    {
-        // Check Local case-insensitive
-        var artist = db.Artist.Local.FirstOrDefault(a => a.Name.Equals(name, StringComparison.InvariantCultureIgnoreCase));
-
-        if (artist == null)
-        {
-            artist = await db.Artist.FirstOrDefaultAsync(a => a.Name.ToLower() == name.ToLower());
-        }
-
-        if (artist == null)
-        {
-            artist = new Artist
-            {
-                Name = name,
-                Slug = Guid.NewGuid().ToString()
-            };
-            db.Artist.Add(artist);
-            await db.SaveChangesAsync(); // Need ID immediately for the request
-        }
-        return artist.Id;
     }
 
     private List<string> SplitWithAmpersandKeep(string input)
@@ -136,11 +117,12 @@ public class CsvImportService(Database db, IGigService gigService) : ICsvImportS
     private decimal? ParseCurrency(string? cost)
     {
         if (string.IsNullOrWhiteSpace(cost)) return null;
-        var clean = cost.Replace("£", "").Replace("$", "").Trim();
+        var clean = cost.Replace("£", string.Empty).Replace("$", string.Empty).Trim();
         if (decimal.TryParse(clean, NumberStyles.Any, CultureInfo.InvariantCulture, out var val))
         {
             return val;
         }
+
         return null;
     }
 
@@ -151,6 +133,7 @@ public class CsvImportService(Database db, IGigService gigService) : ICsvImportS
         {
             return result;
         }
+
         return TicketType.Other;
     }
 
@@ -187,4 +170,3 @@ public class CsvImportService(Database db, IGigService gigService) : ICsvImportS
         public string? SetlistUrl { get; set; }
     }
 }
-

@@ -1,5 +1,6 @@
-using Gigs.DTOs;
+using Gigs.DataModels;
 using Gigs.Services.Calendar;
+using Gigs.Types;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Gigs.Controllers;
@@ -8,48 +9,35 @@ namespace Gigs.Controllers;
 [Route("api/[controller]")]
 public class CalendarController : ControllerBase
 {
-    private readonly IGoogleCalendarService _calendarService;
+    private readonly GoogleCalendarService _calendarService;
 
-    public CalendarController(IGoogleCalendarService calendarService)
+    public CalendarController(GoogleCalendarService calendarService)
     {
         _calendarService = calendarService;
     }
 
     /// <summary>
-    /// Import calendar events as gigs
+    /// Import calendar events as gigs.
     /// </summary>
+    /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
     [HttpPost("import")]
-    public async Task<IActionResult> Import([FromBody] ImportCalendarEventsRequest? request = null)
+    public async Task<ActionResult<ImportCalendarEventsResponse>> Import([FromBody] ImportCalendarEventsRequest? request = null)
     {
-        try
-        {
-            var result = await _calendarService.ImportEventsAsGigsAsync(
-                request?.StartDate,
-                request?.EndDate
-            );
+        var result = await _calendarService.ImportEventsAsGigsAsync(
+            request?.StartDate,
+            request?.EndDate);
 
-            return Ok(result);
-        }
-        catch (Exception ex)
-        {
-            return BadRequest(new { Error = $"Error importing calendar events: {ex.Message}" });
-        }
+        return result.ToResponse();
     }
 
     /// <summary>
-    /// Get calendar events without importing
+    /// Get calendar events without importing.
     /// </summary>
+    /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
     [HttpGet("events")]
-    public async Task<IActionResult> GetEvents([FromQuery] DateTime? startDate = null, [FromQuery] DateTime? endDate = null)
+    public async Task<ActionResult<List<GetCalendarEventResponse>>> GetEvents([FromQuery] DateTime? startDate = null, [FromQuery] DateTime? endDate = null)
     {
-        try
-        {
-            var events = await _calendarService.GetCalendarEventsAsync(startDate, endDate);
-            return Ok(events);
-        }
-        catch (Exception ex)
-        {
-            return BadRequest(new { Error = $"Error fetching calendar events: {ex.Message}" });
-        }
+        var result = await _calendarService.GetCalendarEventsAsync(startDate, endDate);
+        return result.ToResponse();
     }
 }
