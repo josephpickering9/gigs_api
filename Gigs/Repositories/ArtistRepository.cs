@@ -35,7 +35,6 @@ public class ArtistRepository(Database database)
                 Slug = Guid.NewGuid().ToString(),
             };
             database.Artist.Add(artist);
-            await database.SaveChangesAsync();
         }
 
         return artist.Id;

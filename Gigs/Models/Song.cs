@@ -6,7 +6,7 @@ namespace Gigs.Models;
 public class Song
 {
     [Required]
-    public SongId Id { get; set; } = SongId.New();
+    public SongId Id { get; set; }
 
     [Required]
     public ArtistId ArtistId { get; set; }

@@ -62,7 +62,6 @@ public class FestivalRepository(Database database)
                 Slug = Guid.NewGuid().ToString(),
             };
             database.Festival.Add(festival);
-            await database.SaveChangesAsync();
         }
 
         return festival.Id;

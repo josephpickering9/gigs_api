@@ -6,7 +6,7 @@ namespace Gigs.Models;
 public class Person
 {
     [Required]
-    public PersonId Id { get; set; } = PersonId.New();
+    public PersonId Id { get; set; }
 
     [Required]
     public string Name { get; set; } = null!;

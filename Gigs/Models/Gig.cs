@@ -7,7 +7,7 @@ namespace Gigs.Models;
 public class Gig
 {
     [Required]
-    public GigId Id { get; set; } = GigId.New();
+    public GigId Id { get; set; }
 
     [Required]
     public VenueId VenueId { get; set; }

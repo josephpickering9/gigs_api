@@ -22,7 +22,6 @@ public class SongRepository(Database database)
                 Slug = Guid.NewGuid().ToString(),
             };
             database.Song.Add(song);
-            await database.SaveChangesAsync();
         }
 
         return song;
