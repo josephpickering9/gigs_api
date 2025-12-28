@@ -36,12 +36,53 @@ public class AttendeeControllerTests : IClassFixture<CustomWebApplicationFactory
             db.Database.EnsureDeleted();
             db.Database.EnsureCreated();
 
+            // Create Venue
+            var venue = new Venue { Name = "Test Venue", City = "Test City", Slug = "test-venue" };
+            db.Venue.Add(venue);
+
+            // Create Artist
+            var artist = new Artist { Name = "Test Artist", Slug = "test-artist" };
+            db.Artist.Add(artist);
+
             // Create Persons
             var person1 = new Person { Name = "Alice", Slug = "alice" };
             var person2 = new Person { Name = "Bob", Slug = "bob" };
             var person3 = new Person { Name = "Charlie", Slug = "charlie" };
 
             db.Person.AddRange(person1, person2, person3);
+            await db.SaveChangesAsync();
+
+            // Create Gigs
+            var gig1 = new Gig
+            {
+                Date = new DateOnly(2024, 1, 1),
+                VenueId = venue.Id,
+                Acts = [new GigArtist { ArtistId = artist.Id, IsHeadliner = true }]
+            };
+            var gig2 = new Gig
+            {
+                Date = new DateOnly(2024, 1, 2),
+                VenueId = venue.Id,
+                Acts = [new GigArtist { ArtistId = artist.Id, IsHeadliner = true }]
+            };
+            var gig3 = new Gig
+            {
+                Date = new DateOnly(2024, 1, 3),
+                VenueId = venue.Id,
+                Acts = [new GigArtist { ArtistId = artist.Id, IsHeadliner = true }]
+            };
+
+            db.Gig.AddRange(gig1, gig2, gig3);
+            await db.SaveChangesAsync();
+
+            // Create GigAttendees
+            // Alice attended 2 gigs
+            db.GigAttendee.Add(new GigAttendee { GigId = gig1.Id, PersonId = person1.Id });
+            db.GigAttendee.Add(new GigAttendee { GigId = gig2.Id, PersonId = person1.Id });
+            // Bob attended 1 gig
+            db.GigAttendee.Add(new GigAttendee { GigId = gig1.Id, PersonId = person2.Id });
+            // Charlie attended 0 gigs
+
             await db.SaveChangesAsync();
         }
     }
@@ -58,8 +99,17 @@ public class AttendeeControllerTests : IClassFixture<CustomWebApplicationFactory
 
         Assert.NotNull(result);
         Assert.Equal(3, result.Count);
-        Assert.Contains(result, r => r.Name == "Alice");
-        Assert.Contains(result, r => r.Name == "Bob");
-        Assert.Contains(result, r => r.Name == "Charlie");
+        
+        var alice = result.FirstOrDefault(r => r.Name == "Alice");
+        Assert.NotNull(alice);
+        Assert.Equal(2, alice.GigCount);
+        
+        var bob = result.FirstOrDefault(r => r.Name == "Bob");
+        Assert.NotNull(bob);
+        Assert.Equal(1, bob.GigCount);
+        
+        var charlie = result.FirstOrDefault(r => r.Name == "Charlie");
+        Assert.NotNull(charlie);
+        Assert.Equal(0, charlie.GigCount);
     }
 }

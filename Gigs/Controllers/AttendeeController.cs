@@ -13,12 +13,14 @@ public class AttendeeController(Database db) : ControllerBase
     public async Task<ActionResult<List<GetAttendeeResponse>>> GetAll()
     {
         var attendees = await db.Person
+            .Include(p => p.Gigs)
             .OrderBy(p => p.Name)
             .Select(p => new GetAttendeeResponse
             {
                 Id = p.Id,
                 Name = p.Name,
-                Slug = p.Slug
+                Slug = p.Slug,
+                GigCount = p.Gigs.Count
             })
             .ToListAsync();
 
