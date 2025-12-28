@@ -317,20 +317,27 @@ public class GigService(
 
     private async Task ProcessSetlist(GigArtist gigArtist, List<string> setlist, ArtistId artistId)
     {
-        gigArtist.Songs.Clear();
-
         if (!setlist.Any()) return;
+
+        var existingSongs = gigArtist.Songs.Where(s => s.Song != null).ToDictionary(s => s.Song.Title.ToLower(), s => s);
 
         int order = 1;
         foreach (var songTitle in setlist)
         {
-            var song = await songRepository.GetOrCreateAsync(artistId, songTitle);
-
-            gigArtist.Songs.Add(new GigArtistSong
+            if (existingSongs.TryGetValue(songTitle.ToLower(), out var existingSong))
             {
-                SongId = song.Id,
-                Order = order++
-            });
+                existingSong.Order = order++;
+            }
+            else
+            {
+                var song = await songRepository.GetOrCreateAsync(artistId, songTitle);
+                gigArtist.Songs.Add(new GigArtistSong
+                {
+                    GigArtistId = gigArtist.Id,
+                    SongId = song.Id,
+                    Order = order++
+                });
+            }
         }
     }
 }
