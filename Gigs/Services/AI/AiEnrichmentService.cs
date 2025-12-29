@@ -6,6 +6,7 @@ using Google.Protobuf.WellKnownTypes;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Value = Google.Protobuf.WellKnownTypes.Value;
+using static Google.Cloud.AIPlatform.V1.Tool.Types;
 
 namespace Gigs.Services.AI;
 
@@ -75,24 +76,61 @@ public class AiEnrichmentService
     {
         var endpoint = EndpointName.FormatProjectLocationPublisherModel(_projectId, _location, _publisher, _model);
 
+        var isFutureConcert = gig.Date.ToDateTime(TimeOnly.MinValue) > DateTime.UtcNow;
+        
         var prompt = $@"
-You are a music historian helper.
-I have a gig with the following details:
-Artist: {gig.Acts.FirstOrDefault(a => a.IsHeadliner)?.Artist.Name ?? "Unknown"}
-Venue: {gig.Venue.Name}
-Date: {gig.Date}
-Location: {gig.Venue.City}
+You are a concert data researcher with access to web search. Your job is to find COMPLETE and ACCURATE information.
 
-Please provide the following information if available:
-1. A list of likely support acts for this specific concert.
-2. The likely setlist played by the headliner.
-3. A specific search query I could use to find a high-quality likely photo of this specific concert (e.g. 'Artist Name Venue Name Date').
+Concert Information:
+- Artist: {gig.Acts.FirstOrDefault(a => a.IsHeadliner)?.Artist.Name ?? "Unknown"}
+- Venue: {gig.Venue.Name}
+- Date: {gig.Date:yyyy-MM-dd}
+- Location: {gig.Venue.City}
+{(isFutureConcert ? "- NOTE: This concert is in the FUTURE and hasn't happened yet." : "")}
 
-Output strictly in JSON format:
+MANDATORY SEARCH TASKS:
+{(isFutureConcert ? @"
+1. SUPPORT ACTS: Search thoroughly for ALL announced support/opening acts for this show
+   - Check multiple sources (official announcements, ticketing sites, venue websites)
+   - Include ALL support acts, not just the main opener
+   - Return empty array ONLY if you genuinely find no information
+
+2. SETLIST: Search for typical setlists from this artist's current tour
+   - Look for recent shows from the same tour
+   - Return empty array if no tour setlist data is available
+
+3. IMAGES: Find a promotional poster, tour image, or concert announcement image
+   - Must be a direct image URL (.jpg, .png, .webp)
+   - Try artist's official social media, venue announcements, tour posters
+" : @"
+1. SETLIST: **MUST search setlist.fm FIRST**
+   - Search specifically: 'site:setlist.fm {gig.Acts.FirstOrDefault(a => a.IsHeadliner)?.Artist.Name} {gig.Venue.Name} {gig.Date:yyyy-MM-dd}'
+   - If setlist.fm has the data, extract the COMPLETE setlist in order
+   - Only return empty array if setlist.fm has no data for this specific show
+
+2. SUPPORT ACTS: Find ALL opening acts for this specific show
+   - Check setlist.fm, concert reviews, social media posts about the show
+   - Include ALL support acts that performed, not just the main opener
+   - Return empty array ONLY if you genuinely find no information after searching
+
+3. CONCERT IMAGE: Find a photo from this specific concert
+   - Search for: '{gig.Acts.FirstOrDefault(a => a.IsHeadliner)?.Artist.Name} {gig.Venue.Name} {gig.Date:yyyy-MM-dd} concert photo'
+   - Must be a direct image URL (.jpg, .png, .webp)
+   - Try concert review sites, photographer pages, fan photos
+")}
+
+CRITICAL RULES:
+- Be THOROUGH - search multiple times with different queries if needed
+- ALWAYS check setlist.fm for past concerts (it's the most reliable source)
+- For images: ONLY return direct image URLs, never search queries or page URLs
+- If you can't find data after thorough searching, return empty arrays/null
+- Include ALL support acts you find, even if there are many
+
+Output in JSON format:
 {{
-  ""supportActs"": [""act1"", ""act2""],
-  ""setlist"": [""song1"", ""song2""],
-  ""imageSearchQuery"": ""query string""
+  ""supportActs"": [""all support acts in order""],
+  ""setlist"": [""all songs in order""],
+  ""imageSearchQuery"": ""direct image URL or null""
 }}
 ";
 
@@ -112,8 +150,21 @@ Output strictly in JSON format:
             GenerationConfig = new GenerationConfig
             {
                 Temperature = 0.2f,
-                MaxOutputTokens = 4096, // Increased to prevent truncation
-                ResponseMimeType = "application/json"
+                MaxOutputTokens = 4096 // Increased to prevent truncation
+            },
+            Tools =
+            {
+                new Tool
+                {
+                    GoogleSearch = new GoogleSearch()
+                }
+            },
+            ToolConfig = new ToolConfig
+            {
+                FunctionCallingConfig = new FunctionCallingConfig
+                {
+                    Mode = FunctionCallingConfig.Types.Mode.Any // Force tool usage
+                }
             }
         };
 
@@ -123,12 +174,28 @@ Output strictly in JSON format:
         {
             var response = await _predictionServiceClient.Value.GenerateContentAsync(generateContentRequest);
 
+            // Log grounding metadata
+            if (response.Candidates.Any())
+            {
+                var candidate = response.Candidates.First();
+                if (candidate.GroundingMetadata != null)
+                {
+                    _logger.LogInformation("Grounding metadata for Gig {GigId}: {@GroundingMetadata}", gig.Id, candidate.GroundingMetadata);
+                }
+                else
+                {
+                    _logger.LogWarning("No grounding metadata found for Gig {GigId}", gig.Id);
+                }
+            }
+
             responseText = response.Candidates.FirstOrDefault()?.Content?.Parts.FirstOrDefault()?.Text;
+
+            _logger.LogInformation("AI response for Gig {GigId}: {ResponseLength} chars. Raw response: {RawResponse}", gig.Id, responseText?.Length ?? 0, responseText);
 
             if (string.IsNullOrEmpty(responseText))
             {
-                _logger.LogWarning("Empty response from AI for Gig {GigId}", gig.Id);
-                return Result.Fail<AiEnrichmentResult>("Empty response from AI.");
+                _logger.LogWarning("Empty response from AI for Gig {GigId}. Response: {@Response}", gig.Id, response);
+                return new AiEnrichmentResult().ToSuccess(); // Return empty result instead of failing
             }
 
             var firstBrace = responseText.IndexOf('{');
@@ -143,6 +210,8 @@ Output strictly in JSON format:
                 responseText = responseText.Replace("```json", string.Empty).Replace("```", string.Empty).Trim();
             }
 
+            _logger.LogInformation("Extracted JSON for Gig {GigId}: {Json}", gig.Id, responseText);
+
             var options = new JsonSerializerOptions
             {
                 PropertyNameCaseInsensitive = true,
@@ -150,18 +219,21 @@ Output strictly in JSON format:
                 AllowTrailingCommas = true
             };
 
-            var result = JsonSerializer.Deserialize<AiEnrichmentResult>(responseText, options);
-            return (result ?? new AiEnrichmentResult()).ToSuccess();
+            try
+            {
+                var result = JsonSerializer.Deserialize<AiEnrichmentResult>(responseText, options);
+                return (result ?? new AiEnrichmentResult()).ToSuccess();
+            }
+            catch (JsonException ex)
+            {
+                _logger.LogWarning(ex, "Failed to parse AI response as JSON for Gig {GigId}. Response was: {Response}. Returning empty result.", gig.Id, responseText);
+                return new AiEnrichmentResult().ToSuccess(); // Return empty result instead of failing
+            }
         }
         catch (Grpc.Core.RpcException ex) when (ex.Status.StatusCode == Grpc.Core.StatusCode.Unauthenticated || ex.Message.Contains("invalid_grant"))
         {
             _logger.LogError(ex, "Vertex AI Authentication failed. Please run 'gcloud auth application-default login' to refresh your credentials.");
             return Result.Fail<AiEnrichmentResult>("Vertex AI Authentication failed.");
-        }
-        catch (JsonException ex)
-        {
-            _logger.LogError(ex, "Failed to parse AI response. Raw Text: {RawResponse}", responseText);
-            return Result.Fail<AiEnrichmentResult>($"Failed to parse AI response: {ex.Message}");
         }
         catch (Exception ex)
         {

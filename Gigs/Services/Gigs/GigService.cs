@@ -319,6 +319,14 @@ public class GigService(
             }
         }
 
+        // Update image URL if found
+        if (!string.IsNullOrWhiteSpace(enrichment.ImageSearchQuery) && 
+            Uri.TryCreate(enrichment.ImageSearchQuery, UriKind.Absolute, out var imageUri) &&
+            (imageUri.Scheme == Uri.UriSchemeHttp || imageUri.Scheme == Uri.UriSchemeHttps))
+        {
+            gig.ImageUrl = enrichment.ImageSearchQuery;
+        }
+
         await repository.UpdateAsync(gig);
 
         return MapToDto(gig).ToSuccess();
