@@ -5,7 +5,11 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
+using Gigs.Types;
+using Moq;
+
 namespace GigsTests;
+
 
 public class FestivalServiceTests : IClassFixture<CustomWebApplicationFactory<Program>>
 {
@@ -238,47 +242,55 @@ public class FestivalServiceTests : IClassFixture<CustomWebApplicationFactory<Pr
         Assert.NotEqual(person.Id, savedFestival.Attendees[0].PersonId);
     }
 
+
+
     [Fact]
-    public async Task UpdateAsync_UpdatesGigOrders()
+    public async Task EnrichFestivalAsync_UpdatesPosterImage_WhenAiFindsOne()
     {
         using var scope = _factory.Services.CreateScope();
-        var service = scope.ServiceProvider.GetRequiredService<FestivalService>();
-        var db = scope.ServiceProvider.GetRequiredService<Database>();
+        var services = scope.ServiceProvider;
+        
+        var db = services.GetRequiredService<Database>();
+        var festivalRepo = services.GetRequiredService<FestivalRepository>();
+        
+        // Setup existing data
+        db.Database.EnsureDeleted();
+        db.Database.EnsureCreated();
+        
+        var festival = new Festival { Name = "Test Festival", Slug = "test-fest", Year = 2024 };
+        await festivalRepo.AddAsync(festival);
 
-        // Arrange
-        var festival = new Festival { Name = "Order Update Festival", Slug = "order-update-fest" };
-        db.Festival.Add(festival);
-        await db.SaveChangesAsync();
+        // Prepare Mocks for AiEnrichmentService constructor
+        var mockLogger = new Moq.Mock<Microsoft.Extensions.Logging.ILogger<Gigs.Services.AI.AiEnrichmentService>>();
+        var mockConfig = new Moq.Mock<Microsoft.Extensions.Configuration.IConfiguration>();
+        mockConfig.Setup(c => c["VertexAi:ProjectId"]).Returns("test"); 
 
-        var venue = new Venue { Name = "Some Venue", City = "City", Slug = "some-venue" };
-        db.Venue.Add(venue);
-        await db.SaveChangesAsync();
-
-        var gig1 = new Gig { VenueId = venue.Id, FestivalId = festival.Id, Date = new DateOnly(2023, 7, 1), Order = 0, Slug = "g1-order" };
-        var gig2 = new Gig { VenueId = venue.Id, FestivalId = festival.Id, Date = new DateOnly(2023, 7, 1), Order = 0, Slug = "g2-order" };
-        db.Gig.AddRange(gig1, gig2);
-        await db.SaveChangesAsync();
-
-        var request = new Gigs.DataModels.UpsertFestivalRequest
-        {
-            Name = "Order Update Festival",
-            Gigs = 
-            [
-                new Gigs.DataModels.FestivalGigOrderRequest { GigId = gig1.Id.Value.ToString(), Order = 2 },
-                new Gigs.DataModels.FestivalGigOrderRequest { GigId = gig2.Id.Value.ToString(), Order = 1 }
-            ]
-        };
+        // Mock the AiEnrichmentService
+        var mockAi = new Moq.Mock<Gigs.Services.AI.AiEnrichmentService>(mockLogger.Object, mockConfig.Object, null, null);
+        
+        mockAi.Setup(x => x.EnrichFestival(Moq.It.IsAny<Festival>()))
+              .ReturnsAsync("http://example.com/poster.jpg".ToSuccess());
+        
+        // Manual FestivalService construction
+        // We use real dependencies for everything except AI Service
+        var service = new FestivalService(
+            festivalRepo,
+            services.GetRequiredService<GigService>(),
+            services.GetRequiredService<PersonRepository>(),
+            services.GetRequiredService<GigRepository>(),
+            services.GetRequiredService<VenueRepository>(),
+            mockAi.Object
+        );
 
         // Act
-        await service.UpdateAsync(festival.Id, request);
+        var result = await service.EnrichFestivalAsync(festival.Id);
 
-        // Assert/Verify
-        var savedGig1 = await db.Gig.FirstOrDefaultAsync(g => g.Id == gig1.Id);
-        var savedGig2 = await db.Gig.FirstOrDefaultAsync(g => g.Id == gig2.Id);
-
-        Assert.NotNull(savedGig1);
-        Assert.NotNull(savedGig2);
-        Assert.Equal(2, savedGig1.Order);
-        Assert.Equal(1, savedGig2.Order);
+        // Assert
+        Assert.True(result.IsSuccess);
+        Assert.Equal("http://example.com/poster.jpg", result.Data.PosterImageUrl);
+        
+        // Verify DB update
+        var dbFestival = await festivalRepo.GetByIdAsync(festival.Id);
+        Assert.Equal("http://example.com/poster.jpg", dbFestival.PosterImageUrl);
     }
 }

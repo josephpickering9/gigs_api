@@ -104,4 +104,12 @@ public class FestivalRepository(Database database)
                                .ThenInclude(s => s.Song)
                    .FirstOrDefaultAsync(f => f.Name.ToLower() == name.ToLower());
     }
+
+    public async Task<List<Festival>> GetEnrichmentCandidatesAsync()
+    {
+        // Festivals that are missing a PosterImageUrl
+        return await database.Festival
+            .Where(f => string.IsNullOrEmpty(f.PosterImageUrl))
+            .ToListAsync();
+    }
 }

@@ -15,6 +15,8 @@ public class AiEnrichmentResult
     public string? ImageSearchQuery { get; set; }
 }
 
+public class EnrichedSong
+{
     public string Title { get; set; } = string.Empty;
     public bool IsEncore { get; set; }
     public string? Info { get; set; }
@@ -184,6 +186,25 @@ public class AiEnrichmentService
         {
             _logger.LogError(ex, "Error fetching venue image for {VenueName} in {City}", venueName, city);
             return Result.Fail<string>($"Error fetching venue image: {ex.Message}");
+        }
+    }
+
+    public virtual async Task<Result<string>> EnrichFestival(Festival festival)
+    {
+        try
+        {
+            var query = $"{festival.Name} {festival.Year} poster";
+            var imageUrl = await _imageSearchService.SearchImageAsync(query);
+
+            if (string.IsNullOrWhiteSpace(imageUrl))
+                return Result.NotFound<string>("Image not found.");
+
+            return imageUrl.ToSuccess();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error enriching festival {FestivalId}", festival.Id);
+            return Result.Fail<string>($"Error enriching festival: {ex.Message}");
         }
     }
     private async Task<List<string>> FindSupportActsWithAi(string artist, string venue, DateOnly date, string? contextInfo)

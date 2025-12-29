@@ -78,6 +78,22 @@ public class Database(DbContextOptions<Database> options): DbContext(options)
             .Property(e => e.GigArtistId).HasGuidIdConversion();
         modelBuilder.Entity<GigArtistSong>()
             .Property(e => e.SongId).HasGuidIdConversion();
+        modelBuilder.Entity<GigArtistSong>()
+            .Property(e => e.WithArtistId).HasNullableGuidIdConversion();
+        modelBuilder.Entity<GigArtistSong>()
+            .Property(e => e.CoverArtistId).HasNullableGuidIdConversion();
+
+        modelBuilder.Entity<GigArtistSong>()
+            .HasOne(e => e.WithArtist)
+            .WithMany()
+            .HasForeignKey(e => e.WithArtistId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<GigArtistSong>()
+            .HasOne(e => e.CoverArtist)
+            .WithMany()
+            .HasForeignKey(e => e.CoverArtistId)
+            .OnDelete(DeleteBehavior.Restrict);
 
         // GigAttendee (Junction)
         modelBuilder.Entity<GigAttendee>()

@@ -330,6 +330,18 @@ public class GigService(
                         {
                             existingLink.Order = order;
                             existingLink.IsEncore = enrichedSong.IsEncore;
+                            existingLink.Info = enrichedSong.Info;
+                            existingLink.IsTape = enrichedSong.IsTape;
+                            
+                            if (!string.IsNullOrWhiteSpace(enrichedSong.WithArtistName))
+                            {
+                                existingLink.WithArtistId = await artistRepository.GetOrCreateAsync(enrichedSong.WithArtistName);
+                            }
+                            
+                            if (!string.IsNullOrWhiteSpace(enrichedSong.CoverArtistName))
+                            {
+                                existingLink.CoverArtistId = await artistRepository.GetOrCreateAsync(enrichedSong.CoverArtistName);
+                            }
                         }
                         order++;
                         continue;
@@ -337,12 +349,28 @@ public class GigService(
 
                     var song = await songRepository.GetOrCreateAsync(headliner.ArtistId, enrichedSong.Title);
 
+                    ArtistId? withArtistId = null;
+                    if (!string.IsNullOrWhiteSpace(enrichedSong.WithArtistName))
+                    {
+                        withArtistId = await artistRepository.GetOrCreateAsync(enrichedSong.WithArtistName);
+                    }
+                    
+                    ArtistId? coverArtistId = null;
+                    if (!string.IsNullOrWhiteSpace(enrichedSong.CoverArtistName))
+                    {
+                        coverArtistId = await artistRepository.GetOrCreateAsync(enrichedSong.CoverArtistName);
+                    }
+
                     headliner.Songs.Add(new GigArtistSong
                     {
                         GigArtistId = headliner.Id,
                         SongId = song.Id,
                         Order = order,
-                        IsEncore = enrichedSong.IsEncore
+                        IsEncore = enrichedSong.IsEncore,
+                        Info = enrichedSong.Info,
+                        IsTape = enrichedSong.IsTape,
+                        WithArtistId = withArtistId,
+                        CoverArtistId = coverArtistId
                     });
 
                     existingSongTitles.Add(enrichedSong.Title.ToLower());

@@ -4,9 +4,11 @@ using Gigs.Models;
 using Gigs.Repositories;
 using Gigs.Types;
 
+using Gigs.Services.AI;
+
 namespace Gigs.Services;
 
-public class FestivalService(FestivalRepository repository, GigService gigService, PersonRepository personRepository, GigRepository gigRepository, VenueRepository venueRepository)
+public class FestivalService(FestivalRepository repository, GigService gigService, PersonRepository personRepository, GigRepository gigRepository, VenueRepository venueRepository, AiEnrichmentService aiService)
 {
     public async Task<Result<List<GetFestivalResponse>>> GetAllAsync()
     {
@@ -86,6 +88,44 @@ public class FestivalService(FestivalRepository repository, GigService gigServic
         await repository.UpdateAsync(festival);
 
         return MapToDto(festival).ToSuccess();
+    }
+
+    public async Task<Result<GetFestivalResponse>> EnrichFestivalAsync(FestivalId id)
+    {
+        var festival = await repository.GetByIdAsync(id);
+        if (festival == null)
+        {
+            return Result.NotFound<GetFestivalResponse>($"Festival with ID {id} not found.");
+        }
+
+        var enrichmentResult = await aiService.EnrichFestival(festival);
+        if (enrichmentResult.IsSuccess && !string.IsNullOrEmpty(enrichmentResult.Data))
+        {
+            festival.PosterImageUrl = enrichmentResult.Data;
+            await repository.UpdateAsync(festival);
+        }
+
+        return MapToDto(festival).ToSuccess();
+    }
+
+    public async Task<Result<int>> EnrichAllFestivalsAsync()
+    {
+        var candidates = await repository.GetEnrichmentCandidatesAsync();
+        var count = 0;
+        foreach (var festival in candidates)
+        {
+            try
+            {
+                await EnrichFestivalAsync(festival.Id);
+                count++;
+            }
+            catch (Exception)
+            {
+                // Continue with next
+            }
+        }
+
+        return count.ToSuccess();
     }
 
     public async Task<Result<bool>> DeleteAsync(FestivalId id)

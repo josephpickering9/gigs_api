@@ -101,7 +101,11 @@ public class SetlistFmService
                             result.Setlist.Add(new EnrichedSong
                             {
                                 Title = song.Name,
-                                IsEncore = isEncore
+                                IsEncore = isEncore,
+                                Info = song.Info,
+                                IsTape = song.Tape ?? false,
+                                WithArtistName = song.With?.Name,
+                                CoverArtistName = song.Cover?.Name
                             });
                         }
                     }
@@ -192,6 +196,14 @@ public class SetlistFmService
     {
         public string? Name { get; set; }
         public SetlistFmCover? Cover { get; set; }
+        public SetlistFmWith? With { get; set; }
+        public string? Info { get; set; }
+        public bool? Tape { get; set; }
+    }
+
+    private class SetlistFmWith
+    {
+        public string? Name { get; set; }
     }
 
     private class SetlistFmCover
