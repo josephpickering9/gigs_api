@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Moq;
+using Gigs.Services.SetlistFm;
 
 namespace GigsTests;
 
@@ -51,9 +52,11 @@ public class CustomWebApplicationFactory<TProgram> : WebApplicationFactory<TProg
             mockConfig.Setup(x => x[It.Is<string>(s => s == "VertexAi:ProjectId")]).Returns("dummy-project-id");
 
             var mockAiService = new Mock<AiEnrichmentService>(
+                Mock.Of<Microsoft.Extensions.Logging.ILogger<AiEnrichmentService>>(),
                 mockConfig.Object,
-                Mock.Of<Microsoft.Extensions.Logging.ILogger<AiEnrichmentService>>());
-            mockAiService.Setup(x => x.EnrichGig(It.IsAny<Gig>()))
+                (ImageSearchService?)null, 
+                (SetlistFmService?)null);
+            mockAiService.Setup(x => x.EnrichGig(It.IsAny<Gig>(), It.IsAny<bool>(), It.IsAny<bool>()))
                 .ReturnsAsync(new Gigs.Types.Success<AiEnrichmentResult>(new AiEnrichmentResult()));
             services.AddScoped(_ => mockAiService.Object);
         });

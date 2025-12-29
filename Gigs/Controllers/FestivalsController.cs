@@ -48,4 +48,18 @@ public class FestivalsController(FestivalService service): ControllerBase
         var result = await service.DeleteAsync(id);
         return result.ToResponse();
     }
+
+    [HttpPost("{id}/enrich")]
+    public async Task<ActionResult<GetFestivalResponse>> Enrich(FestivalId id)
+    {
+        var result = await service.EnrichFestivalAsync(id);
+        return result.ToResponse();
+    }
+
+    [HttpPost("enrich-all")]
+    public async Task<ActionResult<int>> EnrichAll()
+    {
+        var result = await service.EnrichAllFestivalsAsync();
+        return result.ToResponse();
+    }
 }

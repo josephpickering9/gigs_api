@@ -3,6 +3,7 @@ using System;
 using Gigs.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Gigs.Migrations
 {
     [DbContext(typeof(Database))]
-    partial class DatabaseModelSnapshot : ModelSnapshot
+    [Migration("20251228192622_AddOrderToGig")]
+    partial class AddOrderToGig
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -63,9 +66,6 @@ namespace Gigs.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
-                    b.Property<string>("PosterImageUrl")
-                        .HasColumnType("text");
-
                     b.Property<decimal?>("Price")
                         .HasColumnType("numeric");
 
@@ -76,9 +76,6 @@ namespace Gigs.Migrations
                     b.Property<DateOnly?>("StartDate")
                         .HasColumnType("date");
 
-                    b.Property<Guid?>("VenueId")
-                        .HasColumnType("uuid");
-
                     b.Property<int?>("Year")
                         .HasColumnType("integer");
 
@@ -86,8 +83,6 @@ namespace Gigs.Migrations
 
                     b.HasIndex("Slug")
                         .IsUnique();
-
-                    b.HasIndex("VenueId");
 
                     b.ToTable("Festival");
                 });
@@ -189,31 +184,12 @@ namespace Gigs.Migrations
                     b.Property<Guid>("SongId")
                         .HasColumnType("uuid");
 
-                    b.Property<Guid?>("CoverArtistId")
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("Info")
-                        .HasColumnType("text");
-
-                    b.Property<bool>("IsEncore")
-                        .HasColumnType("boolean");
-
-                    b.Property<bool>("IsTape")
-                        .HasColumnType("boolean");
-
                     b.Property<int>("Order")
                         .HasColumnType("integer");
 
-                    b.Property<Guid?>("WithArtistId")
-                        .HasColumnType("uuid");
-
                     b.HasKey("GigArtistId", "SongId");
 
-                    b.HasIndex("CoverArtistId");
-
                     b.HasIndex("SongId");
-
-                    b.HasIndex("WithArtistId");
 
                     b.ToTable("GigArtistSong");
                 });
@@ -311,15 +287,6 @@ namespace Gigs.Migrations
                     b.ToTable("Venue");
                 });
 
-            modelBuilder.Entity("Gigs.Models.Festival", b =>
-                {
-                    b.HasOne("Gigs.Models.Venue", "Venue")
-                        .WithMany()
-                        .HasForeignKey("VenueId");
-
-                    b.Navigation("Venue");
-                });
-
             modelBuilder.Entity("Gigs.Models.FestivalAttendee", b =>
                 {
                     b.HasOne("Gigs.Models.Festival", "Festival")
@@ -377,11 +344,6 @@ namespace Gigs.Migrations
 
             modelBuilder.Entity("Gigs.Models.GigArtistSong", b =>
                 {
-                    b.HasOne("Gigs.Models.Artist", "CoverArtist")
-                        .WithMany()
-                        .HasForeignKey("CoverArtistId")
-                        .OnDelete(DeleteBehavior.Restrict);
-
                     b.HasOne("Gigs.Models.GigArtist", "GigArtist")
                         .WithMany("Songs")
                         .HasForeignKey("GigArtistId")
@@ -394,18 +356,9 @@ namespace Gigs.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("Gigs.Models.Artist", "WithArtist")
-                        .WithMany()
-                        .HasForeignKey("WithArtistId")
-                        .OnDelete(DeleteBehavior.Restrict);
-
-                    b.Navigation("CoverArtist");
-
                     b.Navigation("GigArtist");
 
                     b.Navigation("Song");
-
-                    b.Navigation("WithArtist");
                 });
 
             modelBuilder.Entity("Gigs.Models.GigAttendee", b =>

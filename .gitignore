@@ -2,3 +2,4 @@ wwwroot/*
 .idea/*
 bin/*
 obj/*
+.DS_Store

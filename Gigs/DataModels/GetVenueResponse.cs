@@ -13,4 +13,6 @@ public class GetVenueResponse
     public string? ImageUrl { get; set; }
 
     public string Slug { get; set; } = string.Empty;
+
+    public int GigCount { get; set; }
 }

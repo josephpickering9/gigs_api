@@ -16,6 +16,16 @@ public class DashboardService(DashboardRepository dashboardRepository)
         return (await dashboardRepository.GetAverageTicketPriceByYearAsync()).ToSuccess();
     }
 
+    public async Task<Result<List<AverageFestivalPriceByYearResponse>>> GetAverageFestivalPriceByYearAsync()
+    {
+        return (await dashboardRepository.GetAverageFestivalPriceByYearAsync()).ToSuccess();
+    }
+
+    public async Task<Result<List<FestivalsPerYearResponse>>> GetFestivalsPerYearAsync()
+    {
+        return (await dashboardRepository.GetFestivalsPerYearAsync()).ToSuccess();
+    }
+
     public async Task<Result<List<GigsPerYearResponse>>> GetGigsPerYearAsync()
     {
         return (await dashboardRepository.GetGigsPerYearAsync()).ToSuccess();
@@ -31,10 +41,6 @@ public class DashboardService(DashboardRepository dashboardRepository)
         return (await dashboardRepository.GetTemporalStatsAsync()).ToSuccess();
     }
 
-    public async Task<Result<ArtistInsightsResponse>> GetArtistInsightsAsync()
-    {
-        return (await dashboardRepository.GetArtistInsightsAsync()).ToSuccess();
-    }
 
     public async Task<Result<List<TopArtistResponse>>> GetTopArtistsAsync(int limit = 10)
     {
@@ -66,10 +72,6 @@ public class DashboardService(DashboardRepository dashboardRepository)
         return (await dashboardRepository.GetMostHeardSongsAsync(limit)).ToSuccess();
     }
 
-    public async Task<Result<AttendeeInsightsResponse>> GetAttendeeInsightsAsync()
-    {
-        return (await dashboardRepository.GetAttendeeInsightsAsync()).ToSuccess();
-    }
 
     public async Task<Result<List<TopAttendeeResponse>>> GetTopAttendeesAsync(int limit = 10)
     {

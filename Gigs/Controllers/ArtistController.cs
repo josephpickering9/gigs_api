@@ -10,9 +10,9 @@ namespace Gigs.Controllers;
 public class ArtistController(ArtistService artistService): ControllerBase
 {
     [HttpGet]
-    public async Task<ActionResult<List<GetArtistResponse>>> GetAll()
+    public async Task<ActionResult<List<GetArtistResponse>>> GetAll([FromQuery] GigFilterCriteria? filter)
     {
-        var result = await artistService.GetAllAsync();
+        var result = await artistService.GetAllAsync(filter);
         return result.ToResponse();
     }
 

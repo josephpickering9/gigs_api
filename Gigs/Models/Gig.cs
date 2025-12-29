@@ -20,6 +20,8 @@ public class Gig
     [Required]
     public DateOnly Date { get; set; }
 
+    public int Order { get; set; }
+
     public decimal? TicketCost { get; set; }
 
     public TicketType TicketType { get; set; }

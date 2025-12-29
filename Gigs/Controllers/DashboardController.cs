@@ -23,6 +23,20 @@ public class DashboardController(DashboardService dashboardService): ControllerB
         return result.ToResponse();
     }
 
+    [HttpGet("average-festival-price-by-year")]
+    public async Task<ActionResult<List<AverageFestivalPriceByYearResponse>>> GetAverageFestivalPriceByYear()
+    {
+        var result = await dashboardService.GetAverageFestivalPriceByYearAsync();
+        return result.ToResponse();
+    }
+
+    [HttpGet("festivals-per-year")]
+    public async Task<ActionResult<List<FestivalsPerYearResponse>>> GetFestivalsPerYear()
+    {
+        var result = await dashboardService.GetFestivalsPerYearAsync();
+        return result.ToResponse();
+    }
+
     [HttpGet("gigs-per-year")]
     public async Task<ActionResult<List<GigsPerYearResponse>>> GetGigsPerYear()
     {
@@ -44,12 +58,6 @@ public class DashboardController(DashboardService dashboardService): ControllerB
         return result.ToResponse();
     }
 
-    [HttpGet("artist-insights")]
-    public async Task<ActionResult<ArtistInsightsResponse>> GetArtistInsights()
-    {
-        var result = await dashboardService.GetArtistInsightsAsync();
-        return result.ToResponse();
-    }
 
     [HttpGet("top-artists")]
     public async Task<ActionResult<List<TopArtistResponse>>> GetTopArtists([FromQuery] int limit = 10)
@@ -93,12 +101,6 @@ public class DashboardController(DashboardService dashboardService): ControllerB
         return result.ToResponse();
     }
 
-    [HttpGet("attendee-insights")]
-    public async Task<ActionResult<AttendeeInsightsResponse>> GetAttendeeInsights()
-    {
-        var result = await dashboardService.GetAttendeeInsightsAsync();
-        return result.ToResponse();
-    }
 
     [HttpGet("top-attendees")]
     public async Task<ActionResult<List<TopAttendeeResponse>>> GetTopAttendees([FromQuery] int limit = 10)

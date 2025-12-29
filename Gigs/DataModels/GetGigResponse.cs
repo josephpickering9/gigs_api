@@ -11,6 +11,7 @@ public class GetGigResponse
     public FestivalId? FestivalId { get; set; }
     public string? FestivalName { get; set; }
     public DateOnly Date { get; set; }
+    public int Order { get; set; }
     public decimal? TicketCost { get; set; }
     public TicketType TicketType { get; set; }
     public string? ImageUrl { get; set; }

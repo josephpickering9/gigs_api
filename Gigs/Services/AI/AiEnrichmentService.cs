@@ -1,33 +1,51 @@
 using System.Text.Json;
 using Gigs.Models;
+using Gigs.Services.SetlistFm;
 using Gigs.Types;
 using Google.Cloud.AIPlatform.V1;
-using Google.Protobuf.WellKnownTypes;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
-using Value = Google.Protobuf.WellKnownTypes.Value;
 
 namespace Gigs.Services.AI;
 
 public class AiEnrichmentResult
 {
-    public List<string> SupportActs { get; set; } =[];
-    public List<string> Setlist { get; set; } =[];
+    public List<string> SupportActs { get; set; } = [];
+    public List<EnrichedSong> Setlist { get; set; } = [];
     public string? ImageSearchQuery { get; set; }
+}
+
+public class EnrichedSong
+{
+    public string Title { get; set; } = string.Empty;
+    public bool IsEncore { get; set; }
+    public string? Info { get; set; }
+    public bool IsTape { get; set; }
+    public string? WithArtistName { get; set; }
+    public string? CoverArtistName { get; set; }
 }
 
 public class AiEnrichmentService
 {
+    private readonly ILogger<AiEnrichmentService> _logger;
+    private readonly ImageSearchService _imageSearchService;
+    private readonly SetlistFmService _setlistFmService;
     private readonly Lazy<PredictionServiceClient> _predictionServiceClient;
     private readonly string _projectId;
     private readonly string _location;
     private readonly string _publisher;
     private readonly string _model;
-    private readonly ILogger<AiEnrichmentService> _logger;
 
-    public AiEnrichmentService(IConfiguration configuration, ILogger<AiEnrichmentService> logger)
+    public AiEnrichmentService(
+        ILogger<AiEnrichmentService> logger, 
+        IConfiguration configuration,
+        ImageSearchService imageSearchService, 
+        SetlistFmService setlistFmService)
     {
         _logger = logger;
+        _imageSearchService = imageSearchService;
+        _setlistFmService = setlistFmService;
+        
         _projectId = configuration["VertexAi:ProjectId"] ?? throw new ArgumentNullException("VertexAi:ProjectId");
         _location = configuration["VertexAi:ModelLocation"] ?? "us-central1";
         _publisher = "google";
@@ -64,104 +82,65 @@ public class AiEnrichmentService
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Failed to load Vertex AI credentials from configuration. Falling back to Application Default Credentials (ADC).");
+                _logger.LogWarning(ex, "Failed to load Vertex AI credentials. Falling back to ADC.");
             }
 
             return builder.Build();
         });
     }
 
-    public virtual async Task<Result<AiEnrichmentResult>> EnrichGig(Gig gig)
+    public virtual async Task<Result<AiEnrichmentResult>> EnrichGig(Gig gig, bool enrichSetlist = true, bool enrichImage = true)
     {
-        var endpoint = EndpointName.FormatProjectLocationPublisherModel(_projectId, _location, _publisher, _model);
-
-        var prompt = $@"
-You are a music historian helper.
-I have a gig with the following details:
-Artist: {gig.Acts.FirstOrDefault(a => a.IsHeadliner)?.Artist.Name ?? "Unknown"}
-Venue: {gig.Venue.Name}
-Date: {gig.Date}
-Location: {gig.Venue.City}
-
-Please provide the following information if available:
-1. A list of likely support acts for this specific concert.
-2. The likely setlist played by the headliner.
-3. A specific search query I could use to find a high-quality likely photo of this specific concert (e.g. 'Artist Name Venue Name Date').
-
-Output strictly in JSON format:
-{{
-  ""supportActs"": [""act1"", ""act2""],
-  ""setlist"": [""song1"", ""song2""],
-  ""imageSearchQuery"": ""query string""
-}}
-";
-
-        var content = new Content
-        {
-            Role = "USER",
-            Parts =
-            {
-                new Part { Text = prompt }
-            }
-        };
-
-        var generateContentRequest = new GenerateContentRequest
-        {
-            Model = endpoint,
-            Contents = { content },
-            GenerationConfig = new GenerationConfig
-            {
-                Temperature = 0.2f,
-                MaxOutputTokens = 4096, // Increased to prevent truncation
-                ResponseMimeType = "application/json"
-            }
-        };
-
-        string? responseText = null;
-
         try
         {
-            var response = await _predictionServiceClient.Value.GenerateContentAsync(generateContentRequest);
+            var headliner = gig.Acts.FirstOrDefault(a => a.IsHeadliner)?.Artist.Name;
+            var venueName = gig.Venue.Name;
+            var date = gig.Date;
 
-            responseText = response.Candidates.FirstOrDefault()?.Content?.Parts.FirstOrDefault()?.Text;
+            _logger.LogInformation("Enriching Gig {GigId}: {Artist} at {Venue} on {Date}. Setlist: {EnrichSetlist}, Image: {EnrichImage}", 
+                gig.Id, headliner, venueName, date, enrichSetlist, enrichImage);
 
-            if (string.IsNullOrEmpty(responseText))
+            if (string.IsNullOrEmpty(headliner))
             {
-                _logger.LogWarning("Empty response from AI for Gig {GigId}", gig.Id);
-                return Result.Fail<AiEnrichmentResult>("Empty response from AI.");
+                return Result.Fail<AiEnrichmentResult>("Cannot enrich gig without a headliner.");
             }
 
-            var firstBrace = responseText.IndexOf('{');
-            var lastBrace = responseText.LastIndexOf('}');
+            var result = new AiEnrichmentResult();
 
-            if (firstBrace >= 0 && lastBrace > firstBrace)
+            if (enrichSetlist)
             {
-                responseText = responseText.Substring(firstBrace, lastBrace - firstBrace + 1);
+                // 1. Get Setlist and Support Acts from Setlist.fm
+                var setlistFmResult = await _setlistFmService.FindSetlistAsync(headliner, venueName, date);
+                
+                if (setlistFmResult != null)
+                {
+                    result.Setlist = setlistFmResult.Setlist;
+                    result.SupportActs = setlistFmResult.SupportActs;
+                }
+
+                // 2. If no support acts found from Setlist.fm (or even if they were, maybe check AI?), try AI
+                if (!result.SupportActs.Any())
+                {
+                    var aiSupportActs = await FindSupportActsWithAi(headliner, venueName, date, null);
+                    if (aiSupportActs.Any())
+                    {
+                        result.SupportActs = aiSupportActs;
+                    }
+                }
             }
-            else
+
+            if (enrichImage)
             {
-                responseText = responseText.Replace("```json", string.Empty).Replace("```", string.Empty).Trim();
+                // 3. Search for a concert image using Custom Search API
+                var imageUrl = await _imageSearchService.SearchConcertImageAsync(headliner, venueName, date);
+                
+                if (!string.IsNullOrEmpty(imageUrl))
+                {
+                    result.ImageSearchQuery = imageUrl;
+                }
             }
 
-            var options = new JsonSerializerOptions
-            {
-                PropertyNameCaseInsensitive = true,
-                ReadCommentHandling = JsonCommentHandling.Skip,
-                AllowTrailingCommas = true
-            };
-
-            var result = JsonSerializer.Deserialize<AiEnrichmentResult>(responseText, options);
-            return (result ?? new AiEnrichmentResult()).ToSuccess();
-        }
-        catch (Grpc.Core.RpcException ex) when (ex.Status.StatusCode == Grpc.Core.StatusCode.Unauthenticated || ex.Message.Contains("invalid_grant"))
-        {
-            _logger.LogError(ex, "Vertex AI Authentication failed. Please run 'gcloud auth application-default login' to refresh your credentials.");
-            return Result.Fail<AiEnrichmentResult>("Vertex AI Authentication failed.");
-        }
-        catch (JsonException ex)
-        {
-            _logger.LogError(ex, "Failed to parse AI response. Raw Text: {RawResponse}", responseText);
-            return Result.Fail<AiEnrichmentResult>($"Failed to parse AI response: {ex.Message}");
+            return result.ToSuccess();
         }
         catch (Exception ex)
         {
@@ -172,48 +151,16 @@ Output strictly in JSON format:
 
     public virtual async Task<Result<string>> EnrichArtistImage(string artistName)
     {
-        var endpoint = EndpointName.FormatProjectLocationPublisherModel(_projectId, _location, _publisher, _model);
-
-        var prompt = $@"
-You are a music historian helper.
-I have an artist named: {artistName}
-
-Please provide a direct URL to a high-quality, representative image of this artist.
-Prefer official press photos or album covers if possible.
-Ensure the URL is likely to be valid and publicly accessible.
-Try your best to give me a direct image link (ending in .jpg, .png etc).
-
-Output ONLY the URL. Do not output JSON. Just the raw URL string.
-If you absolutely cannot find one, return 'null'.
-";
-
-        var content = new Content
-        {
-            Role = "USER",
-            Parts = { new Part { Text = prompt } }
-        };
-
-        var generateContentRequest = new GenerateContentRequest
-        {
-            Model = endpoint,
-            Contents = { content },
-            GenerationConfig = new GenerationConfig
-            {
-                Temperature = 0.2f,
-                MaxOutputTokens = 256,
-                ResponseMimeType = "text/plain"
-            }
-        };
-
         try
         {
-            var response = await _predictionServiceClient.Value.GenerateContentAsync(generateContentRequest);
-            var url = response.Candidates.FirstOrDefault()?.Content?.Parts.FirstOrDefault()?.Text?.Trim();
+            // Search for a general artist image
+            // Query: "{Artist Name} music artist" to be specific
+            var imageUrl = await _imageSearchService.SearchImageAsync($"{artistName} music artist");
 
-            if (string.IsNullOrWhiteSpace(url) || url.Equals("null", StringComparison.OrdinalIgnoreCase))
+            if (string.IsNullOrWhiteSpace(imageUrl))
                 return Result.NotFound<string>("Image not found.");
 
-            return url.ToSuccess();
+            return imageUrl.ToSuccess();
         }
         catch (Exception ex)
         {
@@ -224,53 +171,99 @@ If you absolutely cannot find one, return 'null'.
 
     public virtual async Task<Result<string>> EnrichVenueImage(string venueName, string city)
     {
-        var endpoint = EndpointName.FormatProjectLocationPublisherModel(_projectId, _location, _publisher, _model);
-
-        var prompt = $@"
-You are a music venue expert.
-I have a music venue named: {venueName} in {city}
-
-Please provide a direct URL to a high-quality, representative image of this venue.
-Prefer exterior or interior photos showing the venue clearly.
-Ensure the URL is likely to be valid and publicly accessible.
-Try your best to give me a direct image link (ending in .jpg, .png etc).
-
-Output ONLY the URL. Do not output JSON. Just the raw URL string.
-If you absolutely cannot find one, return 'null'.
-";
-
-        var content = new Content
-        {
-            Role = "USER",
-            Parts = { new Part { Text = prompt } }
-        };
-
-        var generateContentRequest = new GenerateContentRequest
-        {
-            Model = endpoint,
-            Contents = { content },
-            GenerationConfig = new GenerationConfig
-            {
-                Temperature = 0.2f,
-                MaxOutputTokens = 256,
-                ResponseMimeType = "text/plain"
-            }
-        };
-
         try
         {
-            var response = await _predictionServiceClient.Value.GenerateContentAsync(generateContentRequest);
-            var url = response.Candidates.FirstOrDefault()?.Content?.Parts.FirstOrDefault()?.Text?.Trim();
+            // Search for a venue image
+            // Query: "{Venue Name} {City} venue"
+            var imageUrl = await _imageSearchService.SearchImageAsync($"{venueName} {city} venue");
 
-            if (string.IsNullOrWhiteSpace(url) || url.Equals("null", StringComparison.OrdinalIgnoreCase))
+            if (string.IsNullOrWhiteSpace(imageUrl))
                 return Result.NotFound<string>("Image not found.");
 
-            return url.ToSuccess();
+            return imageUrl.ToSuccess();
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error fetching venue image for {VenueName} in {City}", venueName, city);
             return Result.Fail<string>($"Error fetching venue image: {ex.Message}");
         }
+    }
+
+    public virtual async Task<Result<string>> EnrichFestival(Festival festival)
+    {
+        try
+        {
+            var query = $"{festival.Name} {festival.Year} festival";
+            var imageUrl = await _imageSearchService.SearchImageAsync(query);
+
+            if (string.IsNullOrWhiteSpace(imageUrl))
+                return Result.NotFound<string>("Image not found.");
+
+            return imageUrl.ToSuccess();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error enriching festival {FestivalId}", festival.Id);
+            return Result.Fail<string>($"Error enriching festival: {ex.Message}");
+        }
+    }
+    private async Task<List<string>> FindSupportActsWithAi(string artist, string venue, DateOnly date, string? contextInfo)
+    {
+         var endpoint = EndpointName.FormatProjectLocationPublisherModel(_projectId, _location, _publisher, _model);
+         
+         var prompt = $@"
+You are a music historian data assistant.
+I need to find the SUPPORT ACTS (opening bands) for a specific concert.
+
+Concert Details:
+- Headliner: {artist}
+- Venue: {venue}
+- Date: {date:yyyy-MM-dd}
+{contextInfo}
+
+TASK:
+1. Search specifically for this concert to find who opened the show.
+2. If multiple support acts played, list all of them in order of appearance if possible.
+3. Be careful not to halluncinate. If you can't find any info, return 'null'.
+
+Output ONLY a JSON array of strings. Example: [""Band A"", ""Band B""]
+If none found, output: []
+";
+
+         var content = new Content
+         {
+             Role = "USER",
+             Parts = { new Part { Text = prompt } }
+         };
+
+         var request = new GenerateContentRequest
+         {
+             Model = endpoint,
+             Contents = { content },
+             GenerationConfig = new GenerationConfig
+             {
+                 Temperature = 0.1f, // Low temperature for factual data
+                 ResponseMimeType = "application/json"
+             },
+             Tools = { new Tool { GoogleSearch = new Tool.Types.GoogleSearch() } }
+         };
+
+         try
+         {
+             var response = await _predictionServiceClient.Value.GenerateContentAsync(request);
+             var text = response.Candidates.FirstOrDefault()?.Content?.Parts.FirstOrDefault()?.Text;
+             
+             if (string.IsNullOrWhiteSpace(text)) return [];
+             
+             // Clean code blocks
+             text = text.Replace("```json", "").Replace("```", "").Trim();
+             
+             return JsonSerializer.Deserialize<List<string>>(text) ?? [];
+         }
+         catch (Exception ex)
+         {
+             _logger.LogError(ex, "Error finding support acts with AI for {Artist} at {Venue}", artist, venue);
+             return [];
+         }
     }
 }

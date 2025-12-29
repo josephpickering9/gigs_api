@@ -19,7 +19,10 @@ public class FestivalRepository(Database database)
                 .ThenInclude(g => g.Acts)
                     .ThenInclude(a => a.Songs)
                         .ThenInclude(s => s.Song)
-            .OrderBy(f => f.Name)
+            .Include(f => f.Attendees)
+                .ThenInclude(fa => fa.Person)
+            .OrderByDescending(f => f.StartDate)
+            .ThenBy(f => f.Name)
             .ToListAsync();
     }
 
@@ -35,6 +38,8 @@ public class FestivalRepository(Database database)
                 .ThenInclude(g => g.Acts)
                     .ThenInclude(a => a.Songs)
                         .ThenInclude(s => s.Song)
+            .Include(f => f.Attendees)
+                .ThenInclude(fa => fa.Person)
             .FirstOrDefaultAsync(f => f.Id == id);
     }
 
@@ -98,5 +103,13 @@ public class FestivalRepository(Database database)
                            .ThenInclude(a => a.Songs)
                                .ThenInclude(s => s.Song)
                    .FirstOrDefaultAsync(f => f.Name.ToLower() == name.ToLower());
+    }
+
+    public async Task<List<Festival>> GetEnrichmentCandidatesAsync()
+    {
+        // Festivals that are missing a PosterImageUrl
+        return await database.Festival
+            .Where(f => string.IsNullOrEmpty(f.PosterImageUrl))
+            .ToListAsync();
     }
 }
