@@ -15,10 +15,10 @@ public class ArtistService(
     IHttpClientFactory httpClientFactory,
     SpotifyService spotifyService)
 {
-    public async Task<Result<List<GetArtistResponse>>> GetAllAsync()
+    public async Task<Result<List<GetArtistResponse>>> GetAllAsync(GigFilterCriteria? filter = null)
     {
-        var artists = await repository.GetAllAsync();
-        return artists.Select(MapToDto).ToList().ToSuccess();
+        var artists = await repository.GetAllAsync(filter);
+        return artists.Select(a => MapToDto(a, filter)).ToList().ToSuccess();
     }
 
     public async Task<Result<GetArtistResponse>> EnrichArtistAsync(ArtistId id)
@@ -109,15 +109,61 @@ public class ArtistService(
         return count.ToSuccess();
     }
 
-    private static GetArtistResponse MapToDto(Artist artist)
+    private static GetArtistResponse MapToDto(Artist artist, GigFilterCriteria? filter = null)
     {
+        var gigCount = artist.Gigs.Count;
+
+        // If filters are provided, count only gig appearances that match the criteria
+        if (filter != null && HasAnyFilter(filter))
+        {
+            gigCount = artist.Gigs.Count(ga => MatchesFilter(ga.Gig, filter));
+        }
+
         return new GetArtistResponse
         {
             Id = artist.Id,
             Name = artist.Name,
             ImageUrl = artist.ImageUrl,
             Slug = artist.Slug,
-            GigCount = artist.Gigs.Count
+            GigCount = gigCount
         };
+    }
+
+    private static bool HasAnyFilter(GigFilterCriteria filter)
+    {
+        return filter.VenueId.HasValue
+            || filter.FestivalId.HasValue
+            || !string.IsNullOrWhiteSpace(filter.City)
+            || filter.FromDate.HasValue
+            || filter.ToDate.HasValue
+            || filter.ArtistId.HasValue
+            || filter.AttendeeId.HasValue;
+    }
+
+    private static bool MatchesFilter(Gig gig, GigFilterCriteria filter)
+    {
+        if (filter.VenueId.HasValue && gig.VenueId != filter.VenueId.Value)
+            return false;
+
+        if (filter.FestivalId.HasValue && gig.FestivalId != filter.FestivalId.Value)
+            return false;
+
+        if (!string.IsNullOrWhiteSpace(filter.City) && gig.Venue != null &&
+            !gig.Venue.City.Equals(filter.City, StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        if (filter.FromDate.HasValue && gig.Date < filter.FromDate.Value)
+            return false;
+
+        if (filter.ToDate.HasValue && gig.Date > filter.ToDate.Value)
+            return false;
+
+        if (filter.ArtistId.HasValue && !gig.Acts.Any(a => a.ArtistId == filter.ArtistId.Value))
+            return false;
+
+        if (filter.AttendeeId.HasValue && !gig.Attendees.Any(a => a.PersonId == filter.AttendeeId.Value))
+            return false;
+
+        return true;
     }
 }

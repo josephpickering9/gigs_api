@@ -101,4 +101,58 @@ public class VenueControllerTests : IClassFixture<CustomWebApplicationFactory<Pr
         Assert.NotNull(venueC);
         Assert.Equal(0, venueC.GigCount);
     }
+
+    [Fact]
+    public async Task GetAll_WithCityFilter_ReturnsOnlyVenuesInThatCity()
+    {
+        await SeedData();
+
+        var response = await _client.GetAsync("/api/venues?city=City A");
+        response.EnsureSuccessStatusCode();
+
+        var result = await response.Content.ReadFromJsonAsync<List<GetVenueResponse>>(_jsonOptions);
+
+        Assert.NotNull(result);
+        Assert.Single(result);
+        Assert.Equal("Venue A", result[0].Name);
+        Assert.Equal(2, result[0].GigCount);
+    }
+
+    [Fact]
+    public async Task GetAll_WithArtistFilter_ReturnsVenuesWhereArtistPlayed()
+    {
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<Database>();
+            db.Database.EnsureDeleted();
+            db.Database.EnsureCreated();
+
+            var venue1 = new Venue { Name = "Venue 1", City = "City 1", Slug = "venue-1" };
+            var venue2 = new Venue { Name = "Venue 2", City = "City 2", Slug = "venue-2" };
+            db.Venue.AddRange(venue1, venue2);
+
+            var artist1 = new Artist { Name = "Artist 1", Slug = "artist-1" };
+            var artist2 = new Artist { Name = "Artist 2", Slug = "artist-2" };
+            db.Artist.AddRange(artist1, artist2);
+            await db.SaveChangesAsync();
+
+            // Artist 1 plays at both venues
+            db.Gig.Add(new Gig { VenueId = venue1.Id, Date = new DateOnly(2024, 1, 1), Acts = [new GigArtist { ArtistId = artist1.Id, IsHeadliner = true }] });
+            db.Gig.Add(new Gig { VenueId = venue2.Id, Date = new DateOnly(2024, 1, 2), Acts = [new GigArtist { ArtistId = artist1.Id, IsHeadliner = true }] });
+            
+            // Artist 2 only plays at venue 1
+            db.Gig.Add(new Gig { VenueId = venue1.Id, Date = new DateOnly(2024, 1, 3), Acts = [new GigArtist { ArtistId = artist2.Id, IsHeadliner = true }] });
+            await db.SaveChangesAsync();
+
+            var response = await _client.GetAsync($"/api/venues?artistId={artist2.Id}");
+            response.EnsureSuccessStatusCode();
+
+            var result = await response.Content.ReadFromJsonAsync<List<GetVenueResponse>>(_jsonOptions);
+
+            Assert.NotNull(result);
+            Assert.Single(result);
+            Assert.Equal("Venue 1", result[0].Name);
+            Assert.Equal(1, result[0].GigCount); // Only 1 gig with Artist 2
+        }
+    }
 }

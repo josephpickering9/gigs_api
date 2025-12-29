@@ -10,9 +10,9 @@ namespace Gigs.Controllers;
 public class VenueController(VenueService venueService): ControllerBase
 {
     [HttpGet]
-    public async Task<ActionResult<List<GetVenueResponse>>> GetAll()
+    public async Task<ActionResult<List<GetVenueResponse>>> GetAll([FromQuery] GigFilterCriteria? filter)
     {
-        var result = await venueService.GetAllAsync();
+        var result = await venueService.GetAllAsync(filter);
         return result.ToResponse();
     }
 
