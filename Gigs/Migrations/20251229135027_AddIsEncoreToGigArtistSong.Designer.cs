@@ -3,6 +3,7 @@ using System;
 using Gigs.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Gigs.Migrations
 {
     [DbContext(typeof(Database))]
-    partial class DatabaseModelSnapshot : ModelSnapshot
+    [Migration("20251229135027_AddIsEncoreToGigArtistSong")]
+    partial class AddIsEncoreToGigArtistSong
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -63,9 +66,6 @@ namespace Gigs.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
-                    b.Property<string>("PosterImageUrl")
-                        .HasColumnType("text");
-
                     b.Property<decimal?>("Price")
                         .HasColumnType("numeric");
 
@@ -76,9 +76,6 @@ namespace Gigs.Migrations
                     b.Property<DateOnly?>("StartDate")
                         .HasColumnType("date");
 
-                    b.Property<Guid?>("VenueId")
-                        .HasColumnType("uuid");
-
                     b.Property<int?>("Year")
                         .HasColumnType("integer");
 
@@ -86,8 +83,6 @@ namespace Gigs.Migrations
 
                     b.HasIndex("Slug")
                         .IsUnique();
-
-                    b.HasIndex("VenueId");
 
                     b.ToTable("Festival");
                 });
@@ -293,15 +288,6 @@ namespace Gigs.Migrations
                         .IsUnique();
 
                     b.ToTable("Venue");
-                });
-
-            modelBuilder.Entity("Gigs.Models.Festival", b =>
-                {
-                    b.HasOne("Gigs.Models.Venue", "Venue")
-                        .WithMany()
-                        .HasForeignKey("VenueId");
-
-                    b.Navigation("Venue");
                 });
 
             modelBuilder.Entity("Gigs.Models.FestivalAttendee", b =>

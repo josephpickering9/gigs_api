@@ -16,4 +16,18 @@ public class GigArtistSong
     public Song Song { get; set; } = null!;
 
     public int Order { get; set; }
+    
+    public bool IsEncore { get; set; }
+
+    public string? Info { get; set; }
+
+    public bool IsTape { get; set; }
+
+    public ArtistId? WithArtistId { get; set; }
+
+    public Artist? WithArtist { get; set; }
+
+    public ArtistId? CoverArtistId { get; set; }
+
+    public Artist? CoverArtist { get; set; }
 }

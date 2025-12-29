@@ -24,6 +24,11 @@ public class Festival
 
     public string? ImageUrl { get; set; }
 
+    public string? PosterImageUrl { get; set; }
+
+    public VenueId? VenueId { get; set; }
+    public Venue? Venue { get; set; }
+
     public List<Gig> Gigs { get; set; } =[];
 
     public List<FestivalAttendee> Attendees { get; set; } = [];

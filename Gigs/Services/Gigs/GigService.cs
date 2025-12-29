@@ -247,7 +247,7 @@ public class GigService(
         }
     }
 
-    public async Task<Result<GetGigResponse>> EnrichGigAsync(GigId id)
+    public async Task<Result<GetGigResponse>> EnrichGigAsync(GigId id, bool forceUpdate = true)
     {
         var gig = await repository.GetByIdAsync(id);
         if (gig == null)
@@ -255,7 +255,32 @@ public class GigService(
             return Result.NotFound<GetGigResponse>($"Gig with ID {id} not found.");
         }
 
-        var enrichmentResult = await aiService.EnrichGig(gig);
+        var shouldEnrichSetlist = forceUpdate;
+        var shouldEnrichImage = forceUpdate;
+
+        if (!forceUpdate)
+        {
+            var headliner = gig.Acts.FirstOrDefault(a => a.IsHeadliner);
+            // If headliner has no songs, we need to enrich setlist
+            if (headliner == null || !headliner.Songs.Any())
+            {
+                shouldEnrichSetlist = true;
+            }
+
+            // If no generic image is set (or null), enrich it
+            if (string.IsNullOrWhiteSpace(gig.ImageUrl))
+            {
+                shouldEnrichImage = true;
+            }
+        }
+
+        // If nothing to do, return early
+        if (!shouldEnrichSetlist && !shouldEnrichImage)
+        {
+            return MapToDto(gig).ToSuccess();
+        }
+
+        var enrichmentResult = await aiService.EnrichGig(gig, shouldEnrichSetlist, shouldEnrichImage);
         var enrichment = (enrichmentResult.IsSuccess && enrichmentResult.Data != null) ? enrichmentResult.Data : new AiEnrichmentResult();
 
         var existingArtistNames = gig.Acts
@@ -296,24 +321,31 @@ public class GigService(
 
                 int order = 1;
 
-                foreach (var songTitle in enrichment.Setlist)
+                foreach (var enrichedSong in enrichment.Setlist)
                 {
-                    if (existingSongTitles.Contains(songTitle.ToLower()))
+                    if (existingSongTitles.Contains(enrichedSong.Title.ToLower()))
                     {
+                        var existingLink = headliner.Songs.FirstOrDefault(s => s.Song?.Title.ToLower() == enrichedSong.Title.ToLower());
+                        if (existingLink != null)
+                        {
+                            existingLink.Order = order;
+                            existingLink.IsEncore = enrichedSong.IsEncore;
+                        }
                         order++;
                         continue;
                     }
 
-                    var song = await songRepository.GetOrCreateAsync(headliner.ArtistId, songTitle);
+                    var song = await songRepository.GetOrCreateAsync(headliner.ArtistId, enrichedSong.Title);
 
                     headliner.Songs.Add(new GigArtistSong
                     {
                         GigArtistId = headliner.Id,
                         SongId = song.Id,
-                        Order = order
+                        Order = order,
+                        IsEncore = enrichedSong.IsEncore
                     });
 
-                    existingSongTitles.Add(songTitle.ToLower());
+                    existingSongTitles.Add(enrichedSong.Title.ToLower());
                     order++;
                 }
             }
@@ -340,7 +372,7 @@ public class GigService(
         {
             try
             {
-                await EnrichGigAsync(gig.Id);
+                await EnrichGigAsync(gig.Id, forceUpdate: false);
                 count++;
             }
             catch (Exception)
@@ -385,7 +417,12 @@ public class GigService(
                 Name = a.Artist?.Name ?? "Unknown Artist",
                 IsHeadliner = a.IsHeadliner,
                 ImageUrl = a.Artist?.ImageUrl,
-                Setlist = a.Songs.OrderBy(s => s.Order).Select(s => s.Song.Title).ToList()
+                Setlist = a.Songs.OrderBy(s => s.Order).Select(s => new GetGigSongResponse 
+                {
+                    Title = s.Song.Title,
+                    Order = s.Order,
+                    IsEncore = s.IsEncore
+                }).ToList()
             }).OrderByDescending(a => a.IsHeadliner).ThenBy(a => a.Name).ToList(),
             Attendees = gig.Attendees.Select(a => new GetGigAttendeeResponse
             {
@@ -407,6 +444,9 @@ public class GigService(
             if (existingSongs.TryGetValue(songTitle.ToLower(), out var existingSong))
             {
                 existingSong.Order = order++;
+                // Manual setlist updates via this method don't currently support setting IsEncore explicitly 
+                // unless we change the request DTO. For now, preserve existing value or default?
+                // Preserving existing IsEncore seems safest if just reordering.
             }
             else
             {
@@ -415,7 +455,8 @@ public class GigService(
                 {
                     GigArtistId = gigArtist.Id,
                     SongId = song.Id,
-                    Order = order++
+                    Order = order++,
+                    IsEncore = false // Default for manual entry via string list
                 });
             }
         }

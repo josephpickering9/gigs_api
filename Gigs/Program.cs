@@ -40,6 +40,8 @@ builder.Services.AddScoped<FestivalService>();
 builder.Services.AddScoped<CsvImportService>();
 builder.Services.AddScoped<DashboardService>();
 builder.Services.AddScoped<Gigs.Services.AI.AiEnrichmentService>();
+builder.Services.AddScoped<Gigs.Services.AI.ImageSearchService>();
+builder.Services.AddScoped<Gigs.Services.SetlistFm.SetlistFmService>();
 builder.Services.AddScoped<Gigs.Services.Calendar.GoogleCalendarService>();
 builder.Services.AddScoped<Gigs.Services.External.SpotifyService>();
 

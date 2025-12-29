@@ -53,7 +53,7 @@ public class CustomWebApplicationFactory<TProgram> : WebApplicationFactory<TProg
             var mockAiService = new Mock<AiEnrichmentService>(
                 mockConfig.Object,
                 Mock.Of<Microsoft.Extensions.Logging.ILogger<AiEnrichmentService>>());
-            mockAiService.Setup(x => x.EnrichGig(It.IsAny<Gig>()))
+            mockAiService.Setup(x => x.EnrichGig(It.IsAny<Gig>(), It.IsAny<bool>(), It.IsAny<bool>()))
                 .ReturnsAsync(new Gigs.Types.Success<AiEnrichmentResult>(new AiEnrichmentResult()));
             services.AddScoped(_ => mockAiService.Object);
         });

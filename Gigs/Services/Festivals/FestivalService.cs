@@ -6,7 +6,7 @@ using Gigs.Types;
 
 namespace Gigs.Services;
 
-public class FestivalService(FestivalRepository repository, GigService gigService, PersonRepository personRepository, GigRepository gigRepository)
+public class FestivalService(FestivalRepository repository, GigService gigService, PersonRepository personRepository, GigRepository gigRepository, VenueRepository venueRepository)
 {
     public async Task<Result<List<GetFestivalResponse>>> GetAllAsync()
     {
@@ -49,8 +49,9 @@ public class FestivalService(FestivalRepository repository, GigService gigServic
             Slug = Guid.NewGuid().ToString() // Simple slug for now
         };
 
-        UpdateFestivalDetails(festival, request);
-        UpdateFestivalDetails(festival, request);
+        var venueId = await ResolveVenueId(request);
+
+        UpdateFestivalDetails(festival, request, venueId);
         await ReconcileAttendees(festival, request.Attendees);
         await ReconcileGigOrders(festival, request.Gigs);
 
@@ -75,8 +76,10 @@ public class FestivalService(FestivalRepository repository, GigService gigServic
             return Result.NotFound<GetFestivalResponse>($"Festival with ID {id} not found.");
         }
 
-        UpdateFestivalDetails(festival, request);
-        UpdateFestivalDetails(festival, request);
+        var venueId = await ResolveVenueId(request);
+
+        UpdateFestivalDetails(festival, request, venueId);
+
         await ReconcileAttendees(festival, request.Attendees);
         await ReconcileGigOrders(festival, request.Gigs);
 
@@ -98,11 +101,13 @@ public class FestivalService(FestivalRepository repository, GigService gigServic
     }
 
 
-    private static void UpdateFestivalDetails(Festival festival, UpsertFestivalRequest request)
+    private static void UpdateFestivalDetails(Festival festival, UpsertFestivalRequest request, VenueId? venueId)
     {
         festival.Name = request.Name;
         festival.Year = request.Year;
         festival.ImageUrl = request.ImageUrl;
+        festival.PosterImageUrl = request.PosterImageUrl;
+        festival.VenueId = venueId;
         festival.StartDate = request.StartDate;
         festival.EndDate = request.EndDate;
         festival.Price = request.Price;
@@ -180,6 +185,28 @@ public class FestivalService(FestivalRepository repository, GigService gigServic
         }
     }
 
+    private async Task<VenueId?> ResolveVenueId(UpsertFestivalRequest request)
+    {
+        if (string.IsNullOrWhiteSpace(request.VenueId) && string.IsNullOrWhiteSpace(request.VenueName)) return null;
+
+        if (Guid.TryParse(request.VenueId, out var vId))
+        {
+            return IdFactory.Create<VenueId>(vId);
+        }
+
+        var venueName = request.VenueName ?? ResolveNameFromId(request.VenueId);
+        if (string.IsNullOrWhiteSpace(venueName))
+        {
+             return null;
+        }
+
+        // Default city to Unknown if not provided (Festivals usually assume valid venue existence, 
+        // but let's support creation if needed, though we don't have city in request? 
+        // UpsertGigRequest has City. UpsertFestival doesn't yet. 
+        // Use "Unknown" as default or let GetOrCreateAsync handle it.
+        return await venueRepository.GetOrCreateAsync(venueName, "Unknown");
+    }
+
     private static string? ResolveNameFromId(string? id)
     {
         if (string.IsNullOrWhiteSpace(id)) return null;
@@ -202,6 +229,9 @@ public class FestivalService(FestivalRepository repository, GigService gigServic
             Year = festival.Year,
             Slug = festival.Slug,
             ImageUrl = festival.ImageUrl,
+            PosterImageUrl = festival.PosterImageUrl,
+            VenueId = festival.VenueId,
+            VenueName = festival.Venue?.Name,
             StartDate = festival.StartDate,
             EndDate = festival.EndDate,
             Price = festival.Price,
@@ -230,7 +260,12 @@ public class FestivalService(FestivalRepository repository, GigService gigServic
                     Name = a.Artist.Name,
                     IsHeadliner = a.IsHeadliner,
                     ImageUrl = a.Artist.ImageUrl,
-                    Setlist = a.Songs.Select(s => s.Song.Title).ToList(),
+                    Setlist = a.Songs.OrderBy(s => s.Order).Select(s => new GetGigSongResponse 
+                    {
+                        Title = s.Song.Title,
+                        Order = s.Order,
+                        IsEncore = s.IsEncore
+                    }).ToList(),
                 }).ToList()
             }).OrderBy(g => g.Date).ToList()
         };

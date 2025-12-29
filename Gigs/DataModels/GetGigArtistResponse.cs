@@ -8,5 +8,5 @@ public class GetGigArtistResponse
     public string Name { get; set; } = string.Empty;
     public bool IsHeadliner { get; set; }
     public string? ImageUrl { get; set; }
-    public List<string> Setlist { get; set; } =[];
+    public List<GetGigSongResponse> Setlist { get; set; } = [];
 }
