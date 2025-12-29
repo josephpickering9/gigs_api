@@ -11,6 +11,7 @@ public class ArtistRepository(Database database)
     public async Task<List<Artist>> GetAllAsync()
     {
         return await database.Artist
+            .Include(a => a.Gigs)
             .AsNoTracking()
             .OrderBy(a => a.Name)
             .ToListAsync();

@@ -11,6 +11,7 @@ public class VenueRepository(Database database)
     public async Task<List<Venue>> GetAllAsync()
     {
         return await database.Venue
+            .Include(v => v.Gigs)
             .AsNoTracking()
             .OrderBy(v => v.Name)
             .ToListAsync();

@@ -116,7 +116,8 @@ public class ArtistService(
             Id = artist.Id,
             Name = artist.Name,
             ImageUrl = artist.ImageUrl,
-            Slug = artist.Slug
+            Slug = artist.Slug,
+            GigCount = artist.Gigs.Count
         };
     }
 }

@@ -86,7 +86,8 @@ public class VenueService(
             Name = venue.Name,
             City = venue.City,
             ImageUrl = venue.ImageUrl,
-            Slug = venue.Slug
+            Slug = venue.Slug,
+            GigCount = venue.Gigs.Count
         };
     }
 }
