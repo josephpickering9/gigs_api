@@ -101,7 +101,7 @@ public class FestivalService(FestivalRepository repository, GigService gigServic
         var enrichmentResult = await aiService.EnrichFestival(festival);
         if (enrichmentResult.IsSuccess && !string.IsNullOrEmpty(enrichmentResult.Data))
         {
-            festival.PosterImageUrl = enrichmentResult.Data;
+            festival.ImageUrl = enrichmentResult.Data;
             await repository.UpdateAsync(festival);
         }
 

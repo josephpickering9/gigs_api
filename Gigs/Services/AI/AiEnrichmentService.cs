@@ -193,7 +193,7 @@ public class AiEnrichmentService
     {
         try
         {
-            var query = $"{festival.Name} {festival.Year} poster";
+            var query = $"{festival.Name} {festival.Year} festival";
             var imageUrl = await _imageSearchService.SearchImageAsync(query);
 
             if (string.IsNullOrWhiteSpace(imageUrl))

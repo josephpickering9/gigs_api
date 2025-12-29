@@ -245,7 +245,7 @@ public class FestivalServiceTests : IClassFixture<CustomWebApplicationFactory<Pr
 
 
     [Fact]
-    public async Task EnrichFestivalAsync_UpdatesPosterImage_WhenAiFindsOne()
+    public async Task EnrichFestivalAsync_UpdatesImageUrl_WhenAiFindsOne()
     {
         using var scope = _factory.Services.CreateScope();
         var services = scope.ServiceProvider;
@@ -269,7 +269,7 @@ public class FestivalServiceTests : IClassFixture<CustomWebApplicationFactory<Pr
         var mockAi = new Moq.Mock<Gigs.Services.AI.AiEnrichmentService>(mockLogger.Object, mockConfig.Object, null, null);
         
         mockAi.Setup(x => x.EnrichFestival(Moq.It.IsAny<Festival>()))
-              .ReturnsAsync("http://example.com/poster.jpg".ToSuccess());
+              .ReturnsAsync("http://example.com/festival.jpg".ToSuccess());
         
         // Manual FestivalService construction
         // We use real dependencies for everything except AI Service
@@ -287,10 +287,10 @@ public class FestivalServiceTests : IClassFixture<CustomWebApplicationFactory<Pr
 
         // Assert
         Assert.True(result.IsSuccess);
-        Assert.Equal("http://example.com/poster.jpg", result.Data.PosterImageUrl);
+        Assert.Equal("http://example.com/festival.jpg", result.Data.ImageUrl);
         
         // Verify DB update
         var dbFestival = await festivalRepo.GetByIdAsync(festival.Id);
-        Assert.Equal("http://example.com/poster.jpg", dbFestival.PosterImageUrl);
+        Assert.Equal("http://example.com/festival.jpg", dbFestival.ImageUrl);
     }
 }
