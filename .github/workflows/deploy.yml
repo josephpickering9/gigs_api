@@ -198,6 +198,12 @@ jobs:
                 "ModelLocation": "${{ secrets.VERTEX_AI_MODEL_LOCATION }}",
                 "QueryDataStoreSuffix": "${{ secrets.VERTEX_AI_QUERY_DATASTORE_SUFFIX }}",
                 "CredentialsFile": "$SERVICE_ACCOUNT_PATH"
+              },
+              "GoogleCustomSearch": {
+                "SearchEngineId": "${{ secrets.GOOGLE_CUSTOM_SEARCH_ENGINE_ID }}"
+              },
+              "SetlistFm": {
+                "ApiKey": "${{ secrets.SETLIST_FM_API_KEY }}"
               }
             }
             EOF
@@ -219,6 +225,8 @@ jobs:
             VertexAi:ModelLocation=${{ secrets.VERTEX_AI_MODEL_LOCATION }}
             VertexAi:QueryDataStoreSuffix=${{ secrets.VERTEX_AI_QUERY_DATASTORE_SUFFIX }}
             VertexAi:CredentialsFile=$SERVICE_ACCOUNT_PATH
+            GoogleCustomSearch:SearchEngineId=${{ secrets.GOOGLE_CUSTOM_SEARCH_ENGINE_ID }}
+            SetlistFm:ApiKey=${{ secrets.SETLIST_FM_API_KEY }}
             EOF
 
             # Ensure configuration files are in the publish directory the app runs from
