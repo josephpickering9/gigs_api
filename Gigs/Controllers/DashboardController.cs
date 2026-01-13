@@ -108,4 +108,11 @@ public class DashboardController(DashboardService dashboardService): ControllerB
         var result = await dashboardService.GetTopAttendeesAsync(limit);
         return result.ToResponse();
     }
+
+    [HttpGet("top-value-festivals")]
+    public async Task<ActionResult<List<TopValueFestivalResponse>>> GetTopValueFestivals([FromQuery] int limit = 5)
+    {
+        var result = await dashboardService.GetTopValueFestivalsAsync(limit);
+        return result.ToResponse();
+    }
 }

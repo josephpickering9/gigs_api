@@ -17,5 +17,6 @@ public class GetFestivalResponse
     public DateOnly? EndDate { get; set; }
     public decimal? Price { get; set; }
     public decimal? DailyPrice { get; set; }
+    public List<string> ImageCandidates { get; set; } = [];
     public List<GetPersonResponse> Attendees { get; set; } = [];
 }

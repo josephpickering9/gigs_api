@@ -99,13 +99,15 @@ public class FestivalService(FestivalRepository repository, GigService gigServic
         }
 
         var enrichmentResult = await aiService.EnrichFestival(festival);
-        if (enrichmentResult.IsSuccess && !string.IsNullOrEmpty(enrichmentResult.Data))
+        
+        var dto = MapToDto(festival);
+
+        if (enrichmentResult.IsSuccess)
         {
-            festival.ImageUrl = enrichmentResult.Data;
-            await repository.UpdateAsync(festival);
+            dto.ImageCandidates = enrichmentResult.Data.ImageCandidates;
         }
 
-        return MapToDto(festival).ToSuccess();
+        return dto.ToSuccess();
     }
 
     public async Task<Result<int>> EnrichAllFestivalsAsync()

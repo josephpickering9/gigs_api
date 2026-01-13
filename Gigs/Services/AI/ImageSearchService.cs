@@ -47,12 +47,12 @@ public class ImageSearchService
         }
     }
 
-    public async Task<string?> SearchConcertImageAsync(string artistName, string venueName, string cityName, DateOnly date)
+    public async Task<List<string>> SearchConcertImagesAsync(string artistName, string venueName, string cityName, DateOnly date)
     {
         if (_credential == null || string.IsNullOrEmpty(_searchEngineId))
         {
             _logger.LogWarning("Google Custom Search not properly configured. Skipping image search.");
-            return null;
+            return [];
         }
 
         try
@@ -63,11 +63,9 @@ public class ImageSearchService
                 ApplicationName = "GigsAPI"
             });
 
-            // Build search query - prioritize stage/performance photos and exclude social media/tickets
-            // Use Year + Venue + Artist instead of exact date to find broader gallery results
-            var searchQuery = $"{artistName} {venueName} {cityName} {date.Year} live concert -site:facebook.com -site:fbsbx.com -site:instagram.com -site:twitter.com -site:tiktok.com -site:ticketmaster.com -site:livenation.com";
-            
-            _logger.LogInformation("Searching for concert image: {SearchQuery}", searchQuery);
+            var searchQuery = $"{artistName} at {venueName} ({cityName}) {date:dd/MM/yyyy} live concert performance";
+
+            _logger.LogInformation("Searching for concert images: {SearchQuery}", searchQuery);
 
             var listRequest = searchService.Cse.List();
             listRequest.Cx = _searchEngineId;
@@ -87,39 +85,48 @@ public class ImageSearchService
                         Url = item.Link,
                         Width = item.Image?.Width ?? 0,
                         Height = item.Image?.Height ?? 0,
-                        Score = CalculateImageScore(item)
+                        Score = CalculateImageScore(item, artistName)
                     })
-                    .Where(img => img.Width >= 800 && img.Height >= 600) // Minimum size requirement
+                    .Where(img => img.Width >= 800 && img.Height >= 600)
+                    .Where(img => !string.IsNullOrWhiteSpace(img.Url) &&
+                                  !img.Url.StartsWith("x-raw-image", StringComparison.OrdinalIgnoreCase) &&
+                                  (img.Url.StartsWith("http", StringComparison.OrdinalIgnoreCase)))
                     .OrderByDescending(img => img.Score)
+                    .Take(5)
+                    .Select(img => img.Url)
                     .ToList();
 
                 if (rankedImages.Any())
                 {
-                    var bestImage = rankedImages.First();
-                    _logger.LogInformation("Found concert image: {ImageUrl} (Score: {Score}, Size: {Width}x{Height})", 
-                        bestImage.Url, bestImage.Score, bestImage.Width, bestImage.Height);
-                    return bestImage.Url;
+                    _logger.LogInformation("Found {Count} concert images for {Artist} at {Venue}", rankedImages.Count, artistName, venueName);
+                    return rankedImages;
                 }
             }
 
-            _logger.LogInformation("No suitable images found for concert: {Artist} at {Venue} on {Date}", 
+            _logger.LogInformation("No suitable images found for concert: {Artist} at {Venue} on {Date}",
                 artistName, venueName, date);
-            return null;
+            return [];
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error searching for concert image: {Artist} at {Venue}", 
+            _logger.LogError(ex, "Error searching for concert images: {Artist} at {Venue}",
                 artistName, venueName);
-            return null;
+            return [];
         }
     }
 
-    public async Task<string?> SearchImageAsync(string query)
+    public async Task<string?> SearchConcertImageAsync(string artistName, string venueName, string cityName, DateOnly date)
     {
-        if (_credential == null || string.IsNullOrEmpty(_searchEngineId))
+        var images = await SearchConcertImagesAsync(artistName, venueName, cityName, date);
+        return images.FirstOrDefault();
+    }
+
+    public async Task<List<string>> SearchImagesAsync(string query, int numResults = 8)
+    {
+         if (_credential == null || string.IsNullOrEmpty(_searchEngineId))
         {
             _logger.LogWarning("Google Custom Search not properly configured. Skipping image search for: {Query}", query);
-            return null;
+            return [];
         }
 
         try
@@ -132,14 +139,14 @@ public class ImageSearchService
 
             // Build search query - prioritize stage/performance photos and exclude social media
             var searchQuery = $"{query} -site:facebook.com -site:fbsbx.com -site:instagram.com -site:twitter.com -site:pinterest.com -site:tiktok.com";
-            
-            _logger.LogInformation("Searching for image: {Query}", searchQuery);
+
+            _logger.LogInformation("Searching for images: {Query}", searchQuery);
 
             var listRequest = searchService.Cse.List();
             listRequest.Cx = _searchEngineId;
             listRequest.Q = searchQuery;
             listRequest.SearchType = CseResource.ListRequest.SearchTypeEnum.Image;
-            listRequest.Num = 8; // Fetch more to filter down
+            listRequest.Num = numResults; // Fetch more to filter down
             listRequest.Safe = CseResource.ListRequest.SafeEnum.Active;
 
 
@@ -157,30 +164,37 @@ public class ImageSearchService
                         Score = CalculateImageScore(item)
                     })
                     // Minimum size requirement
-                    .Where(img => img.Width >= 600 && img.Height >= 400) 
+                    .Where(img => img.Width >= 600 && img.Height >= 400)
                     .OrderByDescending(img => img.Score)
+                     .Where(img => !string.IsNullOrWhiteSpace(img.Url) &&
+                                  !img.Url.StartsWith("x-raw-image", StringComparison.OrdinalIgnoreCase) && // Filter raw images
+                                  (img.Url.StartsWith("http", StringComparison.OrdinalIgnoreCase)))
                     .ToList();
 
                 if (rankedImages.Any())
                 {
-                    var bestImage = rankedImages.First();
-                    _logger.LogInformation("Found image: {ImageUrl} (Score: {Score}, Size: {Width}x{Height})", 
-                        bestImage.Url, bestImage.Score, bestImage.Width, bestImage.Height);
-                    return bestImage.Url;
+                    _logger.LogInformation("Found {Count} images for query {Query}", rankedImages.Count, query);
+                    return rankedImages.Select(i => i.Url).ToList();
                 }
             }
 
             _logger.LogInformation("No suitable images found for query: {Query}", query);
-            return null;
+            return [];
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error searching for image: {Query}", query);
-            return null;
+            _logger.LogError(ex, "Error searching for images: {Query}", query);
+            return [];
         }
     }
 
-    private int CalculateImageScore(Result imageResult)
+    public async Task<string?> SearchImageAsync(string query)
+    {
+        var images = await SearchImagesAsync(query);
+        return images.FirstOrDefault();
+    }
+
+    private int CalculateImageScore(Result imageResult, string? artistName = null)
     {
         var score = 0;
         var url = imageResult.Link?.ToLowerInvariant() ?? string.Empty;
@@ -194,16 +208,26 @@ public class ImageSearchService
         // Prefer specific domains/sources known for quality concert photography
         if (url.Contains("gettyimages") || url.Contains("wireimage") || url.Contains("redferns") || url.Contains("wiki"))
             score += 100;
-        
+
         // Prefer images with concert-related terms in title
         if (title.Contains("concert") || title.Contains("performance") || title.Contains("live") || title.Contains("band") || title.Contains("music"))
             score += 50;
-        
+
         if (title.Contains("stage") || title.Contains("performs"))
             score += 30;
 
+        // Prefer images explicitly mentioning the artist
+        if (!string.IsNullOrWhiteSpace(artistName))
+        {
+            var lowerArtist = artistName.ToLowerInvariant();
+            if (title.Contains(lowerArtist))
+                score += 150;
+            if (url.Contains(lowerArtist.Replace(" ", "")) || url.Contains(lowerArtist.Replace(" ", "-")))
+                score += 150;
+        }
+
         // Penalize crowd/fan photos or social media that slipped through
-        if (title.Contains("crowd") || title.Contains("audience") || url.Contains("user-generated") || 
+        if (title.Contains("crowd") || title.Contains("audience") || url.Contains("user-generated") ||
             url.Contains("facebook") || url.Contains("fbsbx") || url.Contains("instagram") || url.Contains("twitter"))
             score -= 100;
 

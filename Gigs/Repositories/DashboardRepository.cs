@@ -379,4 +379,28 @@ public class DashboardRepository(Database database)
             .Take(limit)
             .ToListAsync();
     }
+    public async Task<List<TopValueFestivalResponse>> GetTopValueFestivalsAsync(int limit = 5)
+    {
+        return await database.Festival
+            .Where(f => f.Price.HasValue && f.Price > 0)
+            .Select(f => new
+            {
+                Festival = f,
+                ActCount = f.Gigs.SelectMany(g => g.Acts).Select(a => a.ArtistId).Distinct().Count()
+            })
+            .Where(x => x.ActCount > 0)
+            .Select(x => new TopValueFestivalResponse
+            {
+                FestivalName = x.Festival.Name,
+                Slug = x.Festival.Slug,
+                Year = x.Festival.StartDate.HasValue ? x.Festival.StartDate.Value.Year : (int?)null,
+                Price = x.Festival.Price!.Value,
+                ActCount = x.ActCount,
+                // Cast to decimal to ensure decimal division, though Price is already decimal.
+                PricePerAct = Math.Round(x.Festival.Price!.Value / x.ActCount, 2) 
+            })
+            .OrderBy(x => x.PricePerAct)
+            .Take(limit)
+            .ToListAsync();
+    }
 }

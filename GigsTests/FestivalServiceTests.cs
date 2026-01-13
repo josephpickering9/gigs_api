@@ -245,7 +245,7 @@ public class FestivalServiceTests : IClassFixture<CustomWebApplicationFactory<Pr
 
 
     [Fact]
-    public async Task EnrichFestivalAsync_UpdatesImageUrl_WhenAiFindsOne()
+    public async Task EnrichFestivalAsync_ReturnsCandidates_AndDoesNotUpdateImageUrl()
     {
         using var scope = _factory.Services.CreateScope();
         var services = scope.ServiceProvider;
@@ -268,8 +268,15 @@ public class FestivalServiceTests : IClassFixture<CustomWebApplicationFactory<Pr
         // Mock the AiEnrichmentService
         var mockAi = new Moq.Mock<Gigs.Services.AI.AiEnrichmentService>(mockLogger.Object, mockConfig.Object, null, null);
         
+        var candidates = new List<string> { "http://example.com/candidate1.jpg", "http://example.com/candidate2.jpg" };
+        var aiResult = new Gigs.Services.AI.AiEnrichmentResult 
+        { 
+            ImageCandidates = candidates,
+            ImageSearchQuery = "query"
+        };
+        
         mockAi.Setup(x => x.EnrichFestival(Moq.It.IsAny<Festival>()))
-              .ReturnsAsync("http://example.com/festival.jpg".ToSuccess());
+              .ReturnsAsync(aiResult.ToSuccess());
         
         // Manual FestivalService construction
         // We use real dependencies for everything except AI Service
@@ -287,10 +294,13 @@ public class FestivalServiceTests : IClassFixture<CustomWebApplicationFactory<Pr
 
         // Assert
         Assert.True(result.IsSuccess);
-        Assert.Equal("http://example.com/festival.jpg", result.Data.ImageUrl);
+        Assert.NotNull(result.Data.ImageCandidates);
+        Assert.Equal(2, result.Data.ImageCandidates.Count);
+        Assert.Equal("http://example.com/candidate1.jpg", result.Data.ImageCandidates[0]);
+        Assert.Null(result.Data.ImageUrl); // Should NOT have applied it
         
         // Verify DB update
         var dbFestival = await festivalRepo.GetByIdAsync(festival.Id);
-        Assert.Equal("http://example.com/festival.jpg", dbFestival.ImageUrl);
+        Assert.Null(dbFestival.ImageUrl); // Should NOT be in DB
     }
 }

@@ -13,6 +13,7 @@ public class AiEnrichmentResult
     public List<string> SupportActs { get; set; } = [];
     public List<EnrichedSong> Setlist { get; set; } = [];
     public string? ImageSearchQuery { get; set; }
+    public List<string> ImageCandidates { get; set; } = [];
 }
 
 public class EnrichedSong
@@ -133,11 +134,12 @@ public class AiEnrichmentService
             if (enrichImage)
             {
                 // 3. Search for a concert image using Custom Search API
-                var imageUrl = await _imageSearchService.SearchConcertImageAsync(headliner, venueName, cityName, date);
+                var images = await _imageSearchService.SearchConcertImagesAsync(headliner, venueName, cityName, date);
                 
-                if (!string.IsNullOrEmpty(imageUrl))
+                if (images.Any())
                 {
-                    result.ImageSearchQuery = imageUrl;
+                    result.ImageSearchQuery = images.First();
+                    result.ImageCandidates = images;
                 }
             }
 
@@ -190,22 +192,27 @@ public class AiEnrichmentService
         }
     }
 
-    public virtual async Task<Result<string>> EnrichFestival(Festival festival)
+    public virtual async Task<Result<AiEnrichmentResult>> EnrichFestival(Festival festival)
     {
         try
         {
             var query = $"{festival.Name} {festival.Year} festival";
-            var imageUrl = await _imageSearchService.SearchImageAsync(query);
+            var images = await _imageSearchService.SearchImagesAsync(query);
 
-            if (string.IsNullOrWhiteSpace(imageUrl))
-                return Result.NotFound<string>("Image not found.");
+            var result = new AiEnrichmentResult();
+            
+            if (images.Any())
+            {
+                result.ImageSearchQuery = images.First();
+                result.ImageCandidates = images;
+            }
 
-            return imageUrl.ToSuccess();
+            return result.ToSuccess();
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error enriching festival {FestivalId}", festival.Id);
-            return Result.Fail<string>($"Error enriching festival: {ex.Message}");
+            return Result.Fail<AiEnrichmentResult>($"Error enriching festival: {ex.Message}");
         }
     }
     private async Task<List<string>> FindSupportActsWithAi(string artist, string venue, string city, DateOnly date, string? contextInfo)
