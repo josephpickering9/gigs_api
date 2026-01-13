@@ -95,6 +95,7 @@ public class AiEnrichmentService
         {
             var headliner = gig.Acts.FirstOrDefault(a => a.IsHeadliner)?.Artist.Name;
             var venueName = gig.Venue.Name;
+            var cityName = gig.Venue.City;
             var date = gig.Date;
 
             _logger.LogInformation("Enriching Gig {GigId}: {Artist} at {Venue} on {Date}. Setlist: {EnrichSetlist}, Image: {EnrichImage}", 
@@ -119,9 +120,9 @@ public class AiEnrichmentService
                 }
 
                 // 2. If no support acts found from Setlist.fm (or even if they were, maybe check AI?), try AI
-                if (!result.SupportActs.Any())
+                if (!result.SupportActs.Any() || result.SupportActs.Count < 2)
                 {
-                    var aiSupportActs = await FindSupportActsWithAi(headliner, venueName, date, null);
+                    var aiSupportActs = await FindSupportActsWithAi(headliner, venueName, cityName, date, null);
                     if (aiSupportActs.Any())
                     {
                         result.SupportActs = aiSupportActs;
@@ -132,7 +133,7 @@ public class AiEnrichmentService
             if (enrichImage)
             {
                 // 3. Search for a concert image using Custom Search API
-                var imageUrl = await _imageSearchService.SearchConcertImageAsync(headliner, venueName, date);
+                var imageUrl = await _imageSearchService.SearchConcertImageAsync(headliner, venueName, cityName, date);
                 
                 if (!string.IsNullOrEmpty(imageUrl))
                 {
@@ -207,7 +208,7 @@ public class AiEnrichmentService
             return Result.Fail<string>($"Error enriching festival: {ex.Message}");
         }
     }
-    private async Task<List<string>> FindSupportActsWithAi(string artist, string venue, DateOnly date, string? contextInfo)
+    private async Task<List<string>> FindSupportActsWithAi(string artist, string venue, string city, DateOnly date, string? contextInfo)
     {
          var endpoint = EndpointName.FormatProjectLocationPublisherModel(_projectId, _location, _publisher, _model);
          
@@ -218,6 +219,7 @@ I need to find the SUPPORT ACTS (opening bands) for a specific concert.
 Concert Details:
 - Headliner: {artist}
 - Venue: {venue}
+- City: {city}
 - Date: {date:yyyy-MM-dd}
 {contextInfo}
 

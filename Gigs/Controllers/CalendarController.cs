@@ -1,6 +1,7 @@
 using Gigs.DataModels;
 using Gigs.Services.Calendar;
 using Gigs.Types;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Gigs.Controllers;
@@ -20,6 +21,8 @@ public class CalendarController : ControllerBase
     /// Import calendar events as gigs.
     /// </summary>
     /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
+
+    [Authorize]
     [HttpPost("import")]
     public async Task<ActionResult<ImportCalendarEventsResponse>> Import([FromBody] ImportCalendarEventsRequest? request = null)
     {
@@ -34,6 +37,7 @@ public class CalendarController : ControllerBase
     /// Get calendar events without importing.
     /// </summary>
     /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
+    [Authorize]
     [HttpGet("events")]
     public async Task<ActionResult<List<GetCalendarEventResponse>>> GetEvents([FromQuery] DateTime? startDate = null, [FromQuery] DateTime? endDate = null)
     {

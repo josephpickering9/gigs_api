@@ -1,6 +1,7 @@
 using Gigs.DataModels;
 using Gigs.Services;
 using Gigs.Types;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Gigs.Controllers;
@@ -16,6 +17,7 @@ public class ArtistController(ArtistService artistService): ControllerBase
         return result.ToResponse();
     }
 
+    [Authorize]
     [HttpPost("{id}/enrich")]
     public async Task<ActionResult<GetArtistResponse>> EnrichArtist(ArtistId id)
     {
@@ -23,6 +25,7 @@ public class ArtistController(ArtistService artistService): ControllerBase
         return result.ToResponse();
     }
 
+    [Authorize]
     [HttpPost("enrich-all")]
     public async Task<ActionResult<int>> EnrichAllArtists()
     {

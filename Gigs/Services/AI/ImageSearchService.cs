@@ -47,7 +47,7 @@ public class ImageSearchService
         }
     }
 
-    public async Task<string?> SearchConcertImageAsync(string artistName, string venueName, DateOnly date)
+    public async Task<string?> SearchConcertImageAsync(string artistName, string venueName, string cityName, DateOnly date)
     {
         if (_credential == null || string.IsNullOrEmpty(_searchEngineId))
         {
@@ -65,7 +65,7 @@ public class ImageSearchService
 
             // Build search query - prioritize stage/performance photos and exclude social media/tickets
             // Use Year + Venue + Artist instead of exact date to find broader gallery results
-            var searchQuery = $"{artistName} {venueName} {date.Year} live concert -site:facebook.com -site:fbsbx.com -site:instagram.com -site:twitter.com -site:tiktok.com -site:ticketmaster.com -site:livenation.com";
+            var searchQuery = $"{artistName} {venueName} {cityName} {date.Year} live concert -site:facebook.com -site:fbsbx.com -site:instagram.com -site:twitter.com -site:tiktok.com -site:ticketmaster.com -site:livenation.com";
             
             _logger.LogInformation("Searching for concert image: {SearchQuery}", searchQuery);
 
