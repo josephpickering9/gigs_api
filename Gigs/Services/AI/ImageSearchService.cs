@@ -63,7 +63,7 @@ public class ImageSearchService
                 ApplicationName = "GigsAPI"
             });
 
-            var searchQuery = $"{artistName} at {venueName} ({cityName}) {date:dd/MM/yyyy} live concert performance";
+            var searchQuery = $"{artistName} at {venueName} ({cityName}) {date:MMMM} {date.Year} live concert performance -site:facebook.com -site:fbsbx.com -site:instagram.com -site:twitter.com -site:pinterest.com -site:tiktok.com";
 
             _logger.LogInformation("Searching for concert images: {SearchQuery}", searchQuery);
 
@@ -78,6 +78,14 @@ public class ImageSearchService
 
             if (search.Items != null && search.Items.Count > 0)
             {
+                // Debug logging: show all raw results before filtering
+                _logger.LogInformation("API returned {Count} raw images before filtering", search.Items.Count);
+                foreach (var item in search.Items)
+                {
+                    _logger.LogInformation("Raw image: {Url}, Size: {Width}x{Height}, Title: {Title}",
+                        item.Link, item.Image?.Width ?? 0, item.Image?.Height ?? 0, item.Title);
+                }
+
                 // Filter and rank images by quality indicators
                 var rankedImages = search.Items
                     .Select(item => new
@@ -87,12 +95,12 @@ public class ImageSearchService
                         Height = item.Image?.Height ?? 0,
                         Score = CalculateImageScore(item, artistName)
                     })
-                    .Where(img => img.Width >= 800 && img.Height >= 600)
+                    .Where(img => img.Width >= 600 && img.Height >= 400)
                     .Where(img => !string.IsNullOrWhiteSpace(img.Url) &&
-                                  !img.Url.StartsWith("x-raw-image", StringComparison.OrdinalIgnoreCase) &&
-                                  (img.Url.StartsWith("http", StringComparison.OrdinalIgnoreCase)))
-                    .OrderByDescending(img => img.Score)
-                    .Take(5)
+                                   !img.Url.StartsWith("x-raw-image", StringComparison.OrdinalIgnoreCase) &&
+                                   img.Url.StartsWith("http", StringComparison.OrdinalIgnoreCase) &&
+                                   !IsSocialMediaUrl(img.Url))
+                    .Take(10)
                     .Select(img => img.Url)
                     .ToList();
 
@@ -154,6 +162,14 @@ public class ImageSearchService
 
             if (search.Items != null && search.Items.Count > 0)
             {
+                // Debug logging: show all raw results before filtering
+                _logger.LogInformation("API returned {Count} raw images before filtering", search.Items.Count);
+                foreach (var item in search.Items)
+                {
+                    _logger.LogInformation("Raw image: {Url}, Size: {Width}x{Height}, Title: {Title}",
+                        item.Link, item.Image?.Width ?? 0, item.Image?.Height ?? 0, item.Title);
+                }
+
                 // Filter and rank images by quality indicators
                 var rankedImages = search.Items
                     .Select(item => new
@@ -165,10 +181,11 @@ public class ImageSearchService
                     })
                     // Minimum size requirement
                     .Where(img => img.Width >= 600 && img.Height >= 400)
-                    .OrderByDescending(img => img.Score)
+
                      .Where(img => !string.IsNullOrWhiteSpace(img.Url) &&
-                                  !img.Url.StartsWith("x-raw-image", StringComparison.OrdinalIgnoreCase) && // Filter raw images
-                                  (img.Url.StartsWith("http", StringComparison.OrdinalIgnoreCase)))
+                                   !img.Url.StartsWith("x-raw-image", StringComparison.OrdinalIgnoreCase) && // Filter raw images
+                                   img.Url.StartsWith("http", StringComparison.OrdinalIgnoreCase) &&
+                                   !IsSocialMediaUrl(img.Url))
                     .ToList();
 
                 if (rankedImages.Any())
@@ -231,6 +248,33 @@ public class ImageSearchService
             url.Contains("facebook") || url.Contains("fbsbx") || url.Contains("instagram") || url.Contains("twitter"))
             score -= 100;
 
+        // Prefer direct image links
+        if (IsDirectImageUrl(url))
+            score += 50;
+
         return score;
+    }
+
+    private bool IsSocialMediaUrl(string url)
+    {
+        var lowerUrl = url.ToLowerInvariant();
+        var blockedDomains = new[]
+        {
+            "facebook.com", "fb.com", "fbcdn.net", "fbsbx.com",
+            "instagram.com", "cdninstagram.com",
+            "twitter.com", "twimg.com",
+            "pinterest.com", "pinimg.com",
+            "tiktok.com",
+            "snapchat.com"
+        };
+
+        return blockedDomains.Any(domain => lowerUrl.Contains(domain));
+    }
+
+    private bool IsDirectImageUrl(string url)
+    {
+        var lowerUrl = url.ToLowerInvariant();
+        var imageExtensions = new[] { ".jpg", ".jpeg", ".png", ".webp", ".gif" };
+        return imageExtensions.Any(ext => lowerUrl.EndsWith(ext));
     }
 }

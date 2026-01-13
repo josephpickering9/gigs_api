@@ -44,7 +44,7 @@ namespace Gigs.Migrations
                     b.HasIndex("Slug")
                         .IsUnique();
 
-                    b.ToTable("Artist");
+                    b.ToTable("Artist", (string)null);
                 });
 
             modelBuilder.Entity("Gigs.Models.Festival", b =>
@@ -89,7 +89,7 @@ namespace Gigs.Migrations
 
                     b.HasIndex("VenueId");
 
-                    b.ToTable("Festival");
+                    b.ToTable("Festival", (string)null);
                 });
 
             modelBuilder.Entity("Gigs.Models.FestivalAttendee", b =>
@@ -104,7 +104,7 @@ namespace Gigs.Migrations
 
                     b.HasIndex("PersonId");
 
-                    b.ToTable("FestivalAttendee");
+                    b.ToTable("FestivalAttendee", (string)null);
                 });
 
             modelBuilder.Entity("Gigs.Models.Gig", b =>
@@ -148,7 +148,7 @@ namespace Gigs.Migrations
 
                     b.HasIndex("VenueId");
 
-                    b.ToTable("Gig");
+                    b.ToTable("Gig", (string)null);
                 });
 
             modelBuilder.Entity("Gigs.Models.GigArtist", b =>
@@ -178,7 +178,7 @@ namespace Gigs.Migrations
 
                     b.HasIndex("GigId");
 
-                    b.ToTable("GigArtist");
+                    b.ToTable("GigArtist", (string)null);
                 });
 
             modelBuilder.Entity("Gigs.Models.GigArtistSong", b =>
@@ -215,7 +215,7 @@ namespace Gigs.Migrations
 
                     b.HasIndex("WithArtistId");
 
-                    b.ToTable("GigArtistSong");
+                    b.ToTable("GigArtistSong", (string)null);
                 });
 
             modelBuilder.Entity("Gigs.Models.GigAttendee", b =>
@@ -230,7 +230,7 @@ namespace Gigs.Migrations
 
                     b.HasIndex("PersonId");
 
-                    b.ToTable("GigAttendee");
+                    b.ToTable("GigAttendee", (string)null);
                 });
 
             modelBuilder.Entity("Gigs.Models.Person", b =>
@@ -252,7 +252,7 @@ namespace Gigs.Migrations
                     b.HasIndex("Slug")
                         .IsUnique();
 
-                    b.ToTable("Person");
+                    b.ToTable("Person", (string)null);
                 });
 
             modelBuilder.Entity("Gigs.Models.Song", b =>
@@ -279,7 +279,7 @@ namespace Gigs.Migrations
                     b.HasIndex("Slug")
                         .IsUnique();
 
-                    b.ToTable("Song");
+                    b.ToTable("Song", (string)null);
                 });
 
             modelBuilder.Entity("Gigs.Models.Venue", b =>
@@ -308,7 +308,7 @@ namespace Gigs.Migrations
                     b.HasIndex("Slug")
                         .IsUnique();
 
-                    b.ToTable("Venue");
+                    b.ToTable("Venue", (string)null);
                 });
 
             modelBuilder.Entity("Gigs.Models.Festival", b =>

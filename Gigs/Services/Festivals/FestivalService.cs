@@ -63,7 +63,7 @@ public class FestivalService(FestivalRepository repository, GigService gigServic
         // With EF, the navigation properties might not be fully populated unless we attach them or re-fetch.
         // For simple create, the entities added to lists should be available.
         // But to be safe and consistent with Update/Get, we might want to return the mapped DTO.
-        // Because we manually added attendees, we have the IDs. 
+        // Because we manually added attendees, we have the IDs.
         // Let's rely on the repository to fetch the full graph for the return to be 100% accurate including names.
         var createdFestival = await repository.GetByIdAsync(festival.Id);
 
@@ -99,7 +99,7 @@ public class FestivalService(FestivalRepository repository, GigService gigServic
         }
 
         var enrichmentResult = await aiService.EnrichFestival(festival);
-        
+
         var dto = MapToDto(festival);
 
         if (enrichmentResult.IsSuccess)
@@ -178,13 +178,13 @@ public class FestivalService(FestivalRepository repository, GigService gigServic
             requestedPersonIds.Add(personIdByName);
         }
         var requestedAttendeeIds = requestedPersonIds.ToHashSet();
-        
+
         var attendeesToRemove = festival.Attendees.Where(a => !requestedAttendeeIds.Contains(a.PersonId)).ToList();
         foreach (var attendee in attendeesToRemove)
         {
             festival.Attendees.Remove(attendee);
         }
-        
+
         foreach (var personId in requestedPersonIds)
         {
             var existingAttendee = festival.Attendees.FirstOrDefault(a => a.PersonId == personId);
@@ -242,9 +242,9 @@ public class FestivalService(FestivalRepository repository, GigService gigServic
              return null;
         }
 
-        // Default city to Unknown if not provided (Festivals usually assume valid venue existence, 
-        // but let's support creation if needed, though we don't have city in request? 
-        // UpsertGigRequest has City. UpsertFestival doesn't yet. 
+        // Default city to Unknown if not provided (Festivals usually assume valid venue existence,
+        // but let's support creation if needed, though we don't have city in request?
+        // UpsertGigRequest has City. UpsertFestival doesn't yet.
         // Use "Unknown" as default or let GetOrCreateAsync handle it.
         return await venueRepository.GetOrCreateAsync(venueName, "Unknown");
     }
@@ -258,6 +258,7 @@ public class FestivalService(FestivalRepository repository, GigService gigServic
         }
         return null;
     }
+
     private static GetFestivalResponse MapToDto(Festival festival)
     {
         var dailyPrice = festival.Price.HasValue && festival.EndDate.HasValue && festival.StartDate.HasValue
@@ -302,7 +303,7 @@ public class FestivalService(FestivalRepository repository, GigService gigServic
                     Name = a.Artist.Name,
                     IsHeadliner = a.IsHeadliner,
                     ImageUrl = a.Artist.ImageUrl,
-                    Setlist = a.Songs.OrderBy(s => s.Order).Select(s => new GetGigSongResponse 
+                    Setlist = a.Songs.OrderBy(s => s.Order).Select(s => new GetGigSongResponse
                     {
                         Title = s.Song.Title,
                         Order = s.Order,

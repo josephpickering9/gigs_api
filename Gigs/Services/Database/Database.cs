@@ -49,6 +49,10 @@ public class Database(DbContextOptions<Database> options): DbContext(options)
             .Property(e => e.Id).HasGuidIdConversion().ValueGeneratedOnAdd();
         modelBuilder.Entity<Festival>()
             .Property(e => e.VenueId).HasNullableGuidIdConversion();
+        modelBuilder.Entity<Festival>()
+            .Property(e => e.StartDate).HasColumnName("StartDate");
+        modelBuilder.Entity<Festival>()
+            .Property(e => e.EndDate).HasColumnName("EndDate");
         modelBuilder.Entity<Festival>().HasIndex(b => b.Slug).IsUnique();
 
         // Person
