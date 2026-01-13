@@ -77,4 +77,9 @@ public class DashboardService(DashboardRepository dashboardRepository)
     {
         return (await dashboardRepository.GetTopAttendeesAsync(limit)).ToSuccess();
     }
+
+    public async Task<Result<List<TopValueFestivalResponse>>> GetTopValueFestivalsAsync(int limit = 5)
+    {
+        return (await dashboardRepository.GetTopValueFestivalsAsync(limit)).ToSuccess();
+    }
 }

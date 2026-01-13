@@ -10,6 +10,7 @@ public class FestivalRepository(Database database)
     public async Task<List<Festival>> GetAllAsync()
     {
         return await database.Festival
+            .Include(f => f.Venue)
             .Include(f => f.Gigs)
                 .ThenInclude(g => g.Venue)
             .Include(f => f.Gigs)
@@ -29,6 +30,7 @@ public class FestivalRepository(Database database)
     public async Task<Festival?> GetByIdAsync(FestivalId id)
     {
         return await database.Festival
+            .Include(f => f.Venue)
             .Include(f => f.Gigs)
                 .ThenInclude(g => g.Venue)
             .Include(f => f.Gigs)
@@ -93,6 +95,7 @@ public class FestivalRepository(Database database)
     {
         return database.Festival.Local.FirstOrDefault(f => f.Name.Equals(name, StringComparison.CurrentCultureIgnoreCase))
                ?? await database.Festival
+                   .Include(f => f.Venue)
                    .Include(f => f.Gigs)
                        .ThenInclude(g => g.Venue)
                    .Include(f => f.Gigs)

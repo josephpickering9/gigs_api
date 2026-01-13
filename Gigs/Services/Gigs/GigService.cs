@@ -42,7 +42,15 @@ public class GigService(
 
     public async Task<Result<GetGigResponse>> CreateAsync(UpsertGigRequest request)
     {
-        VenueId venueId;
+        VenueId? venueId = null;
+        Festival? festival = null;
+
+        // Try to resolve festival first to see if we can get a venue from it
+        if (!string.IsNullOrWhiteSpace(request.FestivalId) && Guid.TryParse(request.FestivalId, out var fId))
+        {
+            festival = await festivalRepository.GetByIdAsync(IdFactory.Create<FestivalId>(fId));
+        }
+
         if (Guid.TryParse(request.VenueId, out var vId))
         {
             venueId = IdFactory.Create<VenueId>(vId);
@@ -50,18 +58,27 @@ public class GigService(
         else
         {
             var venueName = request.VenueName ?? ResolveNameFromId(request.VenueId);
-            if (string.IsNullOrWhiteSpace(venueName))
+            if (!string.IsNullOrWhiteSpace(venueName))
             {
-                return Result.Fail<GetGigResponse>("Venue Name or Valid Venue ID is required.");
+                var venueCity = !string.IsNullOrWhiteSpace(request.VenueCity) ? request.VenueCity : "Unknown";
+                venueId = await venueRepository.GetOrCreateAsync(venueName, venueCity);
             }
-            var venueCity = !string.IsNullOrWhiteSpace(request.VenueCity) ? request.VenueCity : "Unknown";
-            venueId = await venueRepository.GetOrCreateAsync(venueName, venueCity);
+            else if (festival?.VenueId != null)
+            {
+                venueId = festival.VenueId;
+            }
         }
+
+        if (venueId == null)
+        {
+            return Result.Fail<GetGigResponse>("Venue Name or Valid Venue ID is required, or a specific Festival with a Venue must be selected.");
+        }
+
 
         var headliner = request.Acts.FirstOrDefault(a => a.IsHeadliner);
         if (headliner != null && Guid.TryParse(headliner.ArtistId, out var headlinerArtistId))
         {
-            var existingGig = await repository.FindAsync(venueId, request.Date, IdFactory.Create<ArtistId>(headlinerArtistId));
+            var existingGig = await repository.FindAsync(venueId.Value, request.Date, IdFactory.Create<ArtistId>(headlinerArtistId));
             if (existingGig != null)
             {
                 return await UpdateAsync(existingGig.Id, request);
@@ -73,7 +90,7 @@ public class GigService(
             Slug = Guid.NewGuid().ToString()
         };
 
-        await UpdateGigDetails(gig, request, venueId);
+        await UpdateGigDetails(gig, request, venueId.Value);
         await ReconcileActs(gig, request.Acts);
         await ReconcileAttendees(gig, request.Attendees);
 
@@ -91,7 +108,15 @@ public class GigService(
             return Result.NotFound<GetGigResponse>($"Gig with ID {id} not found.");
         }
 
-        VenueId venueId;
+        VenueId? venueId = null;
+        Festival? festival = null;
+
+        // Try to resolve festival first to see if we can get a venue from it
+        if (!string.IsNullOrWhiteSpace(request.FestivalId) && Guid.TryParse(request.FestivalId, out var fId))
+        {
+            festival = await festivalRepository.GetByIdAsync(IdFactory.Create<FestivalId>(fId));
+        }
+
         if (Guid.TryParse(request.VenueId, out var vId))
         {
             venueId = IdFactory.Create<VenueId>(vId);
@@ -99,15 +124,24 @@ public class GigService(
         else
         {
             var venueName = request.VenueName ?? ResolveNameFromId(request.VenueId);
-            if (string.IsNullOrWhiteSpace(venueName))
+            if (!string.IsNullOrWhiteSpace(venueName))
             {
-                return Result.Fail<GetGigResponse>("Venue Name or Valid Venue ID is required.");
+                var venueCity = !string.IsNullOrWhiteSpace(request.VenueCity) ? request.VenueCity : "Unknown";
+                venueId = await venueRepository.GetOrCreateAsync(venueName, venueCity);
             }
-            var venueCity = !string.IsNullOrWhiteSpace(request.VenueCity) ? request.VenueCity : "Unknown";
-            venueId = await venueRepository.GetOrCreateAsync(venueName, venueCity);
+            else if (festival?.VenueId != null)
+            {
+                venueId = festival.VenueId;
+            }
         }
 
-        await UpdateGigDetails(gig, request, venueId);
+        if (venueId == null)
+        {
+             return Result.Fail<GetGigResponse>("Venue Name or Valid Venue ID is required, or a specific Festival with a Venue must be selected.");
+        }
+
+
+        await UpdateGigDetails(gig, request, venueId.Value);
         await ReconcileActs(gig, request.Acts);
         await ReconcileAttendees(gig, request.Attendees);
 
@@ -149,7 +183,16 @@ public class GigService(
 
         gig.Date = request.Date;
         gig.Order = request.Order;
-        gig.TicketCost = request.TicketCost;
+        
+        // If it's a festival gig, we don't store ticket cost on the gig itself
+        if (gig.FestivalId != null) 
+        {
+            gig.TicketCost = null;
+        }
+        else 
+        {
+            gig.TicketCost = request.TicketCost;
+        }
         gig.TicketType = request.TicketType;
         gig.ImageUrl = request.ImageUrl;
     }
@@ -379,17 +422,17 @@ public class GigService(
             }
         }
 
-        // Update image URL if found
-        if (!string.IsNullOrWhiteSpace(enrichment.ImageSearchQuery) && 
-            Uri.TryCreate(enrichment.ImageSearchQuery, UriKind.Absolute, out var imageUri) &&
-            (imageUri.Scheme == Uri.UriSchemeHttp || imageUri.Scheme == Uri.UriSchemeHttps))
-        {
-            gig.ImageUrl = enrichment.ImageSearchQuery;
-        }
+
 
         await repository.UpdateAsync(gig);
 
-        return MapToDto(gig).ToSuccess();
+        var response = MapToDto(gig);
+        if (enrichment.ImageCandidates.Any())
+        {
+            response.ImageCandidates = enrichment.ImageCandidates;
+        }
+
+        return response.ToSuccess();
     }
 
     public async Task<Result<int>> EnrichAllGigsAsync()

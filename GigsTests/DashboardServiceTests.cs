@@ -201,4 +201,87 @@ public class DashboardServiceTests : IClassFixture<CustomWebApplicationFactory<P
         Assert.Equal("A1", result.NextGig.HeadlineArtist);
         Assert.Equal(futureGig.Date, result.NextGig.Date);
     }
+
+    [Fact]
+    public async Task GetTopValueFestivalsAsync_ReturnsCorrectValues()
+    {
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<Database>();
+        var service = scope.ServiceProvider.GetRequiredService<DashboardService>();
+
+        db.Database.EnsureDeleted();
+        db.Database.EnsureCreated();
+
+        // Artists
+        var a1 = new Artist { Name = "A1", Slug = "a1" };
+        var a2 = new Artist { Name = "A2", Slug = "a2" };
+        var a3 = new Artist { Name = "A3", Slug = "a3" };
+        db.Artist.AddRange(a1, a2, a3);
+        await db.SaveChangesAsync();
+
+        // Venue
+        var venue = new Venue { Name = "V1", Slug = "v1", City = "London" };
+        db.Venue.Add(venue);
+        await db.SaveChangesAsync();
+
+        // Festival 1: Price 100, 2 Acts (A1, A2) -> 50/act (Rank 3)
+        var f1 = new Festival { Name = "F1", Slug = "f1", Price = 100 };
+        var g1 = new Gig { Date = DateOnly.FromDateTime(DateTime.Now), VenueId = venue.Id, Slug = "g1" };
+        g1.Acts.Add(new GigArtist { ArtistId = a1.Id });
+        g1.Acts.Add(new GigArtist { ArtistId = a2.Id });
+        f1.Gigs.Add(g1);
+
+        // Festival 2: Price 80, 4 Acts (A1, A2, A3, + A1 Duplicate) -> 3 Unique Acts -> 26.66/act (Rank 1)
+        var f2 = new Festival { Name = "F2", Slug = "f2", Price = 80 };
+        var g2 = new Gig { Date = DateOnly.FromDateTime(DateTime.Now), VenueId = venue.Id, Slug = "g2" };
+        g2.Acts.Add(new GigArtist { ArtistId = a1.Id });
+        g2.Acts.Add(new GigArtist { ArtistId = a2.Id });
+        g2.Acts.Add(new GigArtist { ArtistId = a3.Id });
+        var g2b = new Gig { Date = DateOnly.FromDateTime(DateTime.Now), VenueId = venue.Id, Slug = "g2b" };
+        g2b.Acts.Add(new GigArtist { ArtistId = a1.Id }); // Duplicate artist
+        f2.Gigs.Add(g2);
+        f2.Gigs.Add(g2b);
+
+        // Festival 3: Price 90, 2 Acts (A1, A1) -> 1 Unique Act -> 90/act (Rank 4)
+        var f3 = new Festival { Name = "F3", Slug = "f3", Price = 90 };
+        var g3 = new Gig { Date = DateOnly.FromDateTime(DateTime.Now), VenueId = venue.Id, Slug = "g3" };
+        g3.Acts.Add(new GigArtist { ArtistId = a1.Id });
+        var g3b = new Gig { Date = DateOnly.FromDateTime(DateTime.Now), VenueId = venue.Id, Slug = "g3b" };
+        g3b.Acts.Add(new GigArtist { ArtistId = a1.Id });
+        f3.Gigs.Add(g3);
+        f3.Gigs.Add(g3b);
+
+        // Festival 4: Price 0 (Ignored)
+        var f4 = new Festival { Name = "F4", Slug = "f4", Price = 0 };
+        f4.Gigs.Add(new Gig { Date = DateOnly.FromDateTime(DateTime.Now), VenueId = venue.Id, Slug = "g4", Acts = { new GigArtist { ArtistId = a1.Id } } });
+
+        // Festival 5: Price 100, No Acts (Ignored)
+        var f5 = new Festival { Name = "F5", Slug = "f5", Price = 100 };
+
+        db.Festival.AddRange(f1, f2, f3, f4, f5);
+        await db.SaveChangesAsync();
+
+        // Act
+        var resultSource = await service.GetTopValueFestivalsAsync();
+        var result = resultSource.Data;
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Equal(3, result.Count); // F4 and F5 ignored
+
+        // Rank 1: F2 (80 / 3 = 26.67)
+        Assert.Equal("F2", result[0].FestivalName);
+        Assert.Equal(3, result[0].ActCount);
+        Assert.Equal(26.67m, result[0].PricePerAct);
+
+        // Rank 2: F1 (100 / 2 = 50.00)
+        Assert.Equal("F1", result[1].FestivalName);
+        Assert.Equal(2, result[1].ActCount);
+        Assert.Equal(50.00m, result[1].PricePerAct);
+
+        // Rank 3: F3 (90 / 1 = 90.00)
+        Assert.Equal("F3", result[2].FestivalName);
+        Assert.Equal(1, result[2].ActCount);
+        Assert.Equal(90.00m, result[2].PricePerAct);
+    }
 }
